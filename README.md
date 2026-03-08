@@ -1,4 +1,4 @@
-# Fude (筆)
+# Mojiban (文字盤)
 
 Rich text rendering library for pleme-io applications. Converts markdown, code, and structured text into styled glyph runs for GPU rendering via garasu.
 
@@ -14,11 +14,11 @@ Rich text rendering library for pleme-io applications. Converts markdown, code, 
 
 ```toml
 [dependencies]
-fude = { git = "https://github.com/pleme-io/fude" }
+mojiban = { git = "https://github.com/pleme-io/mojiban" }
 ```
 
 ```rust
-use fude::{MarkdownParser, SyntaxHighlighter};
+use mojiban::{MarkdownParser, SyntaxHighlighter};
 
 let lines = MarkdownParser::parse("**hello** _world_");
 let code = SyntaxHighlighter::new().highlight("fn main() {}", "rust");

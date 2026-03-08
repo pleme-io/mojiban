@@ -39,7 +39,7 @@ rec {
   #
 
   rootCrate = rec {
-    packageId = "fude";
+    packageId = "mojiban";
 
     # Use this attribute to refer to the derivation building your root crate package.
     # You can override the features with rootCrate.build.override { features = [ "default" "feature1" ... ]; }.
@@ -55,10 +55,10 @@ rec {
   # You can override the features with
   # workspaceMembers."${crateName}".build.override { features = [ "default" "feature1" ... ]; }.
   workspaceMembers = {
-    "fude" = rec {
-      packageId = "fude";
+    "mojiban" = rec {
+      packageId = "mojiban";
       build = internal.buildRustCrateWithFeatures {
-        packageId = "fude";
+        packageId = "mojiban";
       };
 
       # Debug support which might change between releases.
@@ -108,36 +108,6 @@ rec {
           "serde_core" = [ "dep:serde_core" ];
         };
       };
-      "fude" = rec {
-        crateName = "fude";
-        version = "0.1.0";
-        edition = "2024";
-        src = lib.cleanSourceWith { filter = sourceFilter;  src = ./.; };
-        dependencies = [
-          {
-            name = "pulldown-cmark";
-            packageId = "pulldown-cmark";
-          }
-          {
-            name = "serde";
-            packageId = "serde";
-            features = [ "derive" ];
-          }
-          {
-            name = "thiserror";
-            packageId = "thiserror";
-          }
-          {
-            name = "tracing";
-            packageId = "tracing";
-          }
-          {
-            name = "unicode-width";
-            packageId = "unicode-width";
-          }
-        ];
-
-      };
       "getopts" = rec {
         crateName = "getopts";
         version = "0.2.24";
@@ -180,6 +150,36 @@ rec {
           "use_std" = [ "std" ];
         };
         resolvedDefaultFeatures = [ "alloc" "default" "std" ];
+      };
+      "mojiban" = rec {
+        crateName = "mojiban";
+        version = "0.1.0";
+        edition = "2024";
+        src = lib.cleanSourceWith { filter = sourceFilter;  src = ./.; };
+        dependencies = [
+          {
+            name = "pulldown-cmark";
+            packageId = "pulldown-cmark";
+          }
+          {
+            name = "serde";
+            packageId = "serde";
+            features = [ "derive" ];
+          }
+          {
+            name = "thiserror";
+            packageId = "thiserror";
+          }
+          {
+            name = "tracing";
+            packageId = "tracing";
+          }
+          {
+            name = "unicode-width";
+            packageId = "unicode-width";
+          }
+        ];
+
       };
       "once_cell" = rec {
         crateName = "once_cell";

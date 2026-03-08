@@ -1,5 +1,5 @@
 {
-  description = "Fude (筆) — rich text rendering: markdown, syntax highlighting, styled spans";
+  description = "Mojiban (文字盤) — rich text rendering: markdown, syntax highlighting, styled spans";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
@@ -27,7 +27,7 @@
         inherit crate2nix;
       };
       lib = rustLibrary {
-        name = "fude";
+        name = "mojiban";
         src = ./.;
       };
     in
@@ -35,7 +35,7 @@
       inherit (lib) packages devShells apps;
 
       overlays.default = final: prev: {
-        fude = self.packages.${final.system}.default;
+        mojiban = self.packages.${final.system}.default;
       };
 
       formatter.${system} = pkgs.nixfmt-tree;

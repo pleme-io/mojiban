@@ -1,4 +1,4 @@
-# Fude (筆) — Rich Text Rendering
+# Mojiban (文字盤) — Rich Text Rendering
 
 ## Build & Test
 
@@ -24,7 +24,7 @@ Converts structured text into styled spans for GPU rendering via garasu.
 ```
 Application (chat messages, terminal, browser)
        ↓
-    fude (markdown → spans, code → highlighted spans)
+    mojiban (markdown → spans, code → highlighted spans)
        ↓
     garasu TextRenderer (spans → GPU glyphs)
 ```
