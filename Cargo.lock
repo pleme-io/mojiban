@@ -9,17 +9,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "843867be96c8daad0d758b57df9392b6d8d271134fce549de6ce169ff98a92af"
 
 [[package]]
-name = "mojiban"
-version = "0.1.0"
-dependencies = [
- "pulldown-cmark",
- "serde",
- "thiserror",
- "tracing",
- "unicode-width",
-]
-
-[[package]]
 name = "getopts"
 version = "0.2.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -111,6 +100,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "sumifude"
+version = "0.1.0"
+dependencies = [
+ "pulldown-cmark",
+ "serde",
+ "thiserror",
+ "tracing",
+ "unicode-width",
 ]
 
 [[package]]
