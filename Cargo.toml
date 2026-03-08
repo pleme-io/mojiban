@@ -1,19 +1,19 @@
 [package]
-name = "sumifude"
+name = "mojiban"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.89.0"
 description = "Mojiban (文字盤) — rich text rendering: markdown, syntax highlighting, styled spans"
 homepage = "https://github.com/pleme-io/mojiban"
 repository = "https://github.com/pleme-io/mojiban"
-documentation = "https://docs.rs/sumifude"
+documentation = "https://docs.rs/mojiban"
 readme = "README.md"
 license = "MIT"
 categories = ["text-processing", "rendering"]
 keywords = ["markdown", "richtext", "syntax", "highlighting", "gpu"]
 
 [lib]
-name = "fude"
+name = "mojiban"
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
