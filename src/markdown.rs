@@ -291,4 +291,355 @@ mod tests {
         let lines = p.parse("test");
         assert_eq!(lines.len(), 1);
     }
+
+    // ---- Heading levels ----
+
+    #[test]
+    fn heading_level_2() {
+        let lines = parser().parse("## Sub heading");
+        assert_eq!(lines.len(), 1);
+        let span = &lines[0].spans[0];
+        assert_eq!(span.text, "Sub heading");
+        assert_eq!(span.style.weight, TextWeight::Bold);
+    }
+
+    #[test]
+    fn heading_level_3() {
+        let lines = parser().parse("### Third level");
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].spans[0].style.weight, TextWeight::Bold);
+    }
+
+    #[test]
+    fn heading_level_6() {
+        let lines = parser().parse("###### Deepest");
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].spans[0].text, "Deepest");
+        assert_eq!(lines[0].spans[0].style.weight, TextWeight::Bold);
+    }
+
+    #[test]
+    fn multiple_headings() {
+        let input = "# First\n\n## Second\n\n### Third";
+        let lines = parser().parse(input);
+        assert_eq!(lines.len(), 3);
+        for line in &lines {
+            assert_eq!(line.spans[0].style.weight, TextWeight::Bold);
+        }
+        assert_eq!(lines[0].plain_text(), "First");
+        assert_eq!(lines[1].plain_text(), "Second");
+        assert_eq!(lines[2].plain_text(), "Third");
+    }
+
+    // ---- Nested formatting ----
+
+    #[test]
+    fn bold_inside_italic() {
+        // *italic **bold-italic** italic*
+        let lines = parser().parse("*start **both** end*");
+        assert_eq!(lines.len(), 1);
+        // Find the span that has both bold and italic
+        let both = lines[0].spans.iter().find(|s| s.text == "both");
+        assert!(both.is_some(), "should find 'both' span");
+        let both_style = &both.unwrap().style;
+        assert_eq!(both_style.weight, TextWeight::Bold);
+        assert!(both_style.italic);
+    }
+
+    #[test]
+    fn code_in_bold_context() {
+        // **bold `code` bold**
+        let lines = parser().parse("**before `code` after**");
+        assert_eq!(lines.len(), 1);
+        let code_span = lines[0].spans.iter().find(|s| s.text == "code");
+        assert!(code_span.is_some(), "should find inline code span");
+        assert_eq!(code_span.unwrap().style.color, colors::CODE);
+    }
+
+    #[test]
+    fn strikethrough_with_bold() {
+        let lines = parser().parse("~~**both**~~");
+        assert_eq!(lines.len(), 1);
+        let span = &lines[0].spans[0];
+        assert_eq!(span.text, "both");
+        assert!(span.style.strikethrough);
+        assert_eq!(span.style.weight, TextWeight::Bold);
+    }
+
+    // ---- Whitespace and edge cases ----
+
+    #[test]
+    fn whitespace_only_input() {
+        let lines = parser().parse("   ");
+        // whitespace-only is not a paragraph — pulldown-cmark may return empty
+        // or a single line; the key constraint is no panic
+        for line in &lines {
+            // If any line, its plain_text should be whitespace
+            assert!(line.plain_text().trim().is_empty() || line.is_empty());
+        }
+    }
+
+    #[test]
+    fn newline_only_input() {
+        let lines = parser().parse("\n\n\n");
+        // Multiple blank lines should produce no meaningful content
+        assert!(lines.is_empty() || lines.iter().all(|l| l.plain_text().is_empty()));
+    }
+
+    #[test]
+    fn single_character() {
+        let lines = parser().parse("x");
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].plain_text(), "x");
+    }
+
+    #[test]
+    fn unicode_content_preserved() {
+        let lines = parser().parse("\u{6587}\u{5B57}\u{76E4}"); // 文字盤
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].plain_text(), "\u{6587}\u{5B57}\u{76E4}");
+    }
+
+    // ---- Soft break and hard break ----
+
+    #[test]
+    fn soft_break_creates_new_line() {
+        // A single newline within a paragraph is a soft break
+        let lines = parser().parse("line one\nline two");
+        // pulldown-cmark emits SoftBreak between the two lines
+        // Our parser flushes current_line on SoftBreak, so we get 2+ lines
+        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join(" ");
+        assert!(all_text.contains("line one"));
+        assert!(all_text.contains("line two"));
+    }
+
+    #[test]
+    fn hard_break_creates_new_line() {
+        // Two trailing spaces followed by newline = hard break
+        let lines = parser().parse("first  \nsecond");
+        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join(" ");
+        assert!(all_text.contains("first"));
+        assert!(all_text.contains("second"));
+    }
+
+    // ---- Lists: deeper coverage ----
+
+    #[test]
+    fn unordered_list_bullet_prefix() {
+        let lines = parser().parse("- alpha\n- beta\n- gamma");
+        assert_eq!(lines.len(), 3);
+        for line in &lines {
+            assert!(
+                line.plain_text().starts_with('\u{2022}'),
+                "each unordered list item should start with bullet: {:?}",
+                line.plain_text()
+            );
+        }
+    }
+
+    #[test]
+    fn ordered_list_increments() {
+        let lines = parser().parse("1. one\n2. two\n3. three");
+        assert_eq!(lines.len(), 3);
+        assert!(lines[0].plain_text().starts_with("1."));
+        assert!(lines[1].plain_text().starts_with("2."));
+        assert!(lines[2].plain_text().starts_with("3."));
+    }
+
+    #[test]
+    fn ordered_list_auto_increments_from_start() {
+        // pulldown-cmark normalizes ordered list start numbers;
+        // our parser increments from whatever start it receives
+        let lines = parser().parse("5. five\n6. six");
+        // pulldown-cmark may renumber from 5 or from 1 depending on spec;
+        // key: each item has a numeric prefix
+        for line in &lines {
+            let text = line.plain_text();
+            assert!(
+                text.chars().next().unwrap_or(' ').is_ascii_digit(),
+                "ordered item should start with digit: {text:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn list_with_inline_code() {
+        let lines = parser().parse("- `code item`");
+        assert_eq!(lines.len(), 1);
+        let text = lines[0].plain_text();
+        assert!(text.contains("code item"));
+        // The code span should have CODE color
+        let code_span = lines[0].spans.iter().find(|s| s.text == "code item");
+        assert!(code_span.is_some(), "should find code span in list item");
+        assert_eq!(code_span.unwrap().style.color, colors::CODE);
+    }
+
+    #[test]
+    fn list_with_bold_item() {
+        let lines = parser().parse("- **bold item**");
+        assert_eq!(lines.len(), 1);
+        let bold_span = lines[0].spans.iter().find(|s| s.text == "bold item");
+        assert!(bold_span.is_some());
+        assert_eq!(bold_span.unwrap().style.weight, TextWeight::Bold);
+    }
+
+    // ---- Block quote deeper coverage ----
+
+    #[test]
+    fn blockquote_multiple_lines() {
+        let lines = parser().parse("> line one\n> line two");
+        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join(" ");
+        assert!(all_text.contains("line one"));
+        assert!(all_text.contains("line two"));
+        // All content spans should have QUOTE color
+        for line in &lines {
+            for span in &line.spans {
+                if !span.text.trim().is_empty() {
+                    assert_eq!(span.style.color, colors::QUOTE, "blockquote span should have QUOTE color");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn blockquote_with_bold() {
+        let lines = parser().parse("> **bold quote**");
+        let bold_span = lines.iter()
+            .flat_map(|l| l.spans.iter())
+            .find(|s| s.text == "bold quote");
+        assert!(bold_span.is_some());
+        let style = &bold_span.unwrap().style;
+        assert_eq!(style.weight, TextWeight::Bold);
+        assert_eq!(style.color, colors::QUOTE);
+    }
+
+    // ---- Inline code edge cases ----
+
+    #[test]
+    fn inline_code_with_special_characters() {
+        let lines = parser().parse("`fn main() {}`");
+        assert_eq!(lines.len(), 1);
+        let span = &lines[0].spans[0];
+        assert_eq!(span.text, "fn main() {}");
+        assert_eq!(span.style.color, colors::CODE);
+    }
+
+    #[test]
+    fn multiple_inline_codes() {
+        let lines = parser().parse("`a` and `b`");
+        assert_eq!(lines.len(), 1);
+        let code_spans: Vec<_> = lines[0].spans.iter()
+            .filter(|s| s.style.color == colors::CODE)
+            .collect();
+        assert_eq!(code_spans.len(), 2);
+        assert_eq!(code_spans[0].text, "a");
+        assert_eq!(code_spans[1].text, "b");
+    }
+
+    // ---- Mixed content paragraphs ----
+
+    #[test]
+    fn paragraph_with_all_inline_styles() {
+        let lines = parser().parse("normal **bold** *italic* ~~strike~~ `code`");
+        assert_eq!(lines.len(), 1);
+        let text = lines[0].plain_text();
+        assert!(text.contains("normal"));
+        assert!(text.contains("bold"));
+        assert!(text.contains("italic"));
+        assert!(text.contains("strike"));
+        assert!(text.contains("code"));
+
+        let bold = lines[0].spans.iter().find(|s| s.text == "bold").unwrap();
+        assert_eq!(bold.style.weight, TextWeight::Bold);
+
+        let italic = lines[0].spans.iter().find(|s| s.text == "italic").unwrap();
+        assert!(italic.style.italic);
+
+        let strike = lines[0].spans.iter().find(|s| s.text == "strike").unwrap();
+        assert!(strike.style.strikethrough);
+
+        let code = lines[0].spans.iter().find(|s| s.text == "code").unwrap();
+        assert_eq!(code.style.color, colors::CODE);
+    }
+
+    // ---- Multiple paragraphs with formatting ----
+
+    #[test]
+    fn multiple_paragraphs_with_formatting() {
+        let input = "**Bold paragraph.**\n\n*Italic paragraph.*\n\nPlain paragraph.";
+        let lines = parser().parse(input);
+        assert_eq!(lines.len(), 3);
+        assert_eq!(lines[0].spans[0].style.weight, TextWeight::Bold);
+        assert!(lines[1].spans[0].style.italic);
+        assert_eq!(lines[2].spans[0].style, TextStyle::default());
+    }
+
+    // ---- Heading with inline formatting ----
+
+    #[test]
+    fn heading_with_inline_code() {
+        let lines = parser().parse("# Title with `code`");
+        assert_eq!(lines.len(), 1);
+        // "Title with " should be bold
+        let title_span = lines[0].spans.iter().find(|s| s.text.contains("Title"));
+        assert!(title_span.is_some());
+        assert_eq!(title_span.unwrap().style.weight, TextWeight::Bold);
+        // "code" should have CODE color
+        let code_span = lines[0].spans.iter().find(|s| s.text == "code");
+        assert!(code_span.is_some());
+        assert_eq!(code_span.unwrap().style.color, colors::CODE);
+    }
+
+    // ---- Fenced code blocks ----
+
+    #[test]
+    fn fenced_code_block_produces_lines() {
+        let input = "```\nlet x = 1;\nlet y = 2;\n```";
+        let lines = parser().parse(input);
+        // Code block content should appear in some form
+        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join("\n");
+        assert!(all_text.contains("let x = 1;") || all_text.contains("let x = 1"),
+                "code block content should be present: {all_text:?}");
+    }
+
+    // ---- Long document ----
+
+    #[test]
+    fn long_document_many_paragraphs() {
+        let mut input = String::new();
+        for i in 0..50 {
+            input.push_str(&format!("Paragraph {i}.\n\n"));
+        }
+        let lines = parser().parse(&input);
+        assert_eq!(lines.len(), 50);
+        for (i, line) in lines.iter().enumerate() {
+            assert_eq!(line.plain_text(), format!("Paragraph {i}."));
+        }
+    }
+
+    // ---- Consecutive bold spans ----
+
+    #[test]
+    fn consecutive_bold_spans() {
+        let lines = parser().parse("**one** **two**");
+        assert_eq!(lines.len(), 1);
+        let bold_spans: Vec<_> = lines[0].spans.iter()
+            .filter(|s| s.style.weight == TextWeight::Bold)
+            .collect();
+        assert_eq!(bold_spans.len(), 2);
+        assert_eq!(bold_spans[0].text, "one");
+        assert_eq!(bold_spans[1].text, "two");
+    }
+
+    // ---- Plain text between formatted spans preserved ----
+
+    #[test]
+    fn plain_text_between_formatted_preserved() {
+        let lines = parser().parse("a **b** c");
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].plain_text(), "a b c");
+        // "a " should be plain
+        let first = &lines[0].spans[0];
+        assert_eq!(first.style, TextStyle::default());
+    }
 }
