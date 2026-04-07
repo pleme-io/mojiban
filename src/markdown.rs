@@ -93,12 +93,7 @@ impl MarkdownParser {
                 Event::Text(text) => {
                     let style = style_stack.last().copied().unwrap_or_default();
                     if need_list_prefix {
-                        let prefix = match list_stack.last() {
-                            Some(ListKind::Unordered) => "\u{2022} ".to_string(),
-                            Some(ListKind::Ordered(n)) => format!("{n}. "),
-                            None => String::new(),
-                        };
-                        if !prefix.is_empty() {
+                        if let Some(prefix) = list_prefix(&list_stack) {
                             current_line.push(StyledSpan::new(prefix, style));
                         }
                         need_list_prefix = false;
@@ -109,12 +104,7 @@ impl MarkdownParser {
                     let mut style = style_stack.last().copied().unwrap_or_default();
                     style.color = colors::CODE;
                     if need_list_prefix {
-                        let prefix = match list_stack.last() {
-                            Some(ListKind::Unordered) => "\u{2022} ".to_string(),
-                            Some(ListKind::Ordered(n)) => format!("{n}. "),
-                            None => String::new(),
-                        };
-                        if !prefix.is_empty() {
+                        if let Some(prefix) = list_prefix(&list_stack) {
                             let base_style = style_stack.last().copied().unwrap_or_default();
                             current_line.push(StyledSpan::new(prefix, base_style));
                         }
@@ -149,6 +139,15 @@ impl Default for MarkdownParser {
 enum ListKind {
     Ordered(u64),
     Unordered,
+}
+
+/// Build the text prefix for a list item (bullet or number), if any.
+fn list_prefix(stack: &[ListKind]) -> Option<String> {
+    match stack.last() {
+        Some(ListKind::Unordered) => Some("\u{2022} ".to_owned()),
+        Some(ListKind::Ordered(n)) => Some(format!("{n}. ")),
+        None => None,
+    }
 }
 
 #[cfg(test)]
