@@ -44,13 +44,13 @@ impl SyntaxHighlighter {
     /// languages are returned as plain text.
     #[must_use]
     pub fn highlight_line(&self, line: &str, language: &str) -> RichLine {
-        let keywords: &[&str] = match language {
-            "rust" | "rs" => RUST_KEYWORDS,
-            "nix" => NIX_KEYWORDS,
+        let (keywords, hash_comments): (&[&str], bool) = match language {
+            "rust" | "rs" => (RUST_KEYWORDS, false),
+            "nix" => (NIX_KEYWORDS, true),
             _ => return RichLine::from_spans(vec![StyledSpan::plain(line)]),
         };
 
-        Tokenizer::new(line, keywords).tokenize()
+        Tokenizer::new(line, keywords, hash_comments).tokenize()
     }
 }
 
@@ -64,16 +64,18 @@ impl Default for SyntaxHighlighter {
 struct Tokenizer<'a> {
     chars: Vec<char>,
     keywords: &'a [&'a str],
+    hash_comments: bool,
     spans: Vec<StyledSpan>,
     pos: usize,
     plain_start: usize,
 }
 
 impl<'a> Tokenizer<'a> {
-    fn new(line: &str, keywords: &'a [&'a str]) -> Self {
+    fn new(line: &str, keywords: &'a [&'a str], hash_comments: bool) -> Self {
         Self {
             chars: line.chars().collect(),
             keywords,
+            hash_comments,
             spans: Vec::new(),
             pos: 0,
             plain_start: 0,
@@ -114,7 +116,7 @@ impl<'a> Tokenizer<'a> {
     /// Try to consume a line comment (`//` or `#`). Returns true if consumed.
     fn try_line_comment(&mut self, ch: char) -> bool {
         let is_double_slash = ch == '/' && self.pos + 1 < self.len() && self.chars[self.pos + 1] == '/';
-        let is_hash = ch == '#';
+        let is_hash = self.hash_comments && ch == '#';
         if !is_double_slash && !is_hash {
             return false;
         }
