@@ -8,6 +8,7 @@
 //! - [`RichLine`]: line of styled spans
 //! - [`StyledSpan`]: text + color + weight + decoration
 
+pub(crate) mod colors;
 pub mod highlight;
 pub mod markdown;
 pub mod span;

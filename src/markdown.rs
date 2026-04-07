@@ -1,14 +1,7 @@
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 
+use crate::colors;
 use crate::span::{RichLine, StyledSpan, TextStyle, TextWeight};
-
-/// Nord-inspired palette constants for markdown styling.
-mod colors {
-    /// Frost accent — used for inline code.
-    pub const CODE: [f32; 4] = [0.537, 0.737, 0.804, 1.0];
-    /// Muted gray — used for block quotes.
-    pub const QUOTE: [f32; 4] = [0.616, 0.635, 0.659, 1.0];
-}
 
 /// Stateless markdown-to-styled-spans processor.
 ///

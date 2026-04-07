@@ -1,16 +1,5 @@
+use crate::colors;
 use crate::span::{RichLine, StyledSpan, TextStyle};
-
-/// Nord-inspired palette for syntax highlighting.
-mod colors {
-    /// Blue — keywords.
-    pub const KEYWORD: [f32; 4] = [0.506, 0.631, 0.757, 1.0];
-    /// Green — strings.
-    pub const STRING: [f32; 4] = [0.651, 0.761, 0.580, 1.0];
-    /// Gray — comments.
-    pub const COMMENT: [f32; 4] = [0.424, 0.443, 0.467, 1.0];
-    /// Purple — numbers.
-    pub const NUMBER: [f32; 4] = [0.706, 0.557, 0.678, 1.0];
-}
 
 /// Rust language keywords.
 const RUST_KEYWORDS: &[&str] = &[
