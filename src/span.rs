@@ -250,6 +250,20 @@ impl RichLine {
     pub fn iter(&self) -> std::slice::Iter<'_, StyledSpan> {
         self.spans.iter()
     }
+
+    /// Retain only spans matching a predicate.
+    pub fn retain<F: FnMut(&StyledSpan) -> bool>(&mut self, f: F) {
+        self.spans.retain(f);
+    }
+
+    /// Map every span's text, preserving styles.
+    #[must_use]
+    pub fn map_text<F: FnMut(&str) -> String>(mut self, mut f: F) -> Self {
+        for span in &mut self.spans {
+            span.text = f(&span.text);
+        }
+        self
+    }
 }
 
 impl Default for RichLine {
@@ -820,6 +834,29 @@ mod tests {
         ]);
         let texts: Vec<&str> = line.iter().map(|s| s.text.as_str()).collect();
         assert_eq!(texts, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn rich_line_retain() {
+        let mut line = RichLine::from_spans(vec![
+            StyledSpan::plain("keep"),
+            StyledSpan::plain(""),
+            StyledSpan::plain("also keep"),
+        ]);
+        line.retain(|s| !s.is_empty());
+        assert_eq!(line.len(), 2);
+        assert_eq!(line.plain_text(), "keepalso keep");
+    }
+
+    #[test]
+    fn rich_line_map_text() {
+        let line = RichLine::from_spans(vec![
+            StyledSpan::plain("hello"),
+            StyledSpan::new("world", TextStyle::bold()),
+        ]);
+        let upper = line.map_text(|t| t.to_uppercase());
+        assert_eq!(upper.plain_text(), "HELLOWORLD");
+        assert_eq!(upper.spans[1].style.weight, TextWeight::Bold);
     }
 
     // ---- with_color / has_decoration ----
