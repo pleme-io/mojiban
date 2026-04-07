@@ -126,6 +126,19 @@ impl TextStyle {
             ..self
         }
     }
+
+    /// Set the color.
+    #[must_use]
+    pub fn with_color(mut self, color: [f32; 4]) -> Self {
+        self.color = color;
+        self
+    }
+
+    /// Whether any decoration (italic, underline, strikethrough) is active.
+    #[must_use]
+    pub fn has_decoration(&self) -> bool {
+        self.italic || self.underline || self.strikethrough
+    }
 }
 
 /// A contiguous run of text sharing the same style.
@@ -807,6 +820,29 @@ mod tests {
         ]);
         let texts: Vec<&str> = line.iter().map(|s| s.text.as_str()).collect();
         assert_eq!(texts, vec!["a", "b"]);
+    }
+
+    // ---- with_color / has_decoration ----
+
+    #[test]
+    fn text_style_with_color() {
+        let color = [0.1, 0.2, 0.3, 1.0];
+        let style = TextStyle::bold().with_color(color);
+        assert_eq!(style.color, color);
+        assert_eq!(style.weight, TextWeight::Bold);
+    }
+
+    #[test]
+    fn text_style_has_decoration_true() {
+        assert!(TextStyle::default().with_italic().has_decoration());
+        assert!(TextStyle::default().with_underline().has_decoration());
+        assert!(TextStyle::default().with_strikethrough().has_decoration());
+    }
+
+    #[test]
+    fn text_style_has_decoration_false() {
+        assert!(!TextStyle::default().has_decoration());
+        assert!(!TextStyle::bold().has_decoration());
     }
 
     // ---- TextStyle with all decorations off ----
