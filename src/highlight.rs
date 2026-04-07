@@ -84,6 +84,7 @@ impl<'a> Tokenizer<'a> {
         self.chars.len()
     }
 
+    #[must_use]
     fn tokenize(mut self) -> RichLine {
         while self.pos < self.len() {
             let ch = self.chars[self.pos];
@@ -98,7 +99,7 @@ impl<'a> Tokenizer<'a> {
         }
         self.flush_plain(self.len());
         if self.spans.is_empty() {
-            self.spans.push(StyledSpan::plain(String::new()));
+            self.spans.push(StyledSpan::default());
         }
         RichLine::from_spans(self.spans)
     }
