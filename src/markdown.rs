@@ -134,13 +134,19 @@ enum ListKind {
     Unordered,
 }
 
-/// Build the text prefix for a list item (bullet or number), if any.
-fn list_prefix(stack: &[ListKind]) -> Option<String> {
-    match stack.last() {
-        Some(ListKind::Unordered) => Some("\u{2022} ".to_owned()),
-        Some(ListKind::Ordered(n)) => Some(format!("{n}. ")),
-        None => None,
+impl ListKind {
+    /// Build the text prefix for a list item (bullet or number).
+    fn prefix(&self) -> String {
+        match self {
+            Self::Unordered => "\u{2022} ".to_owned(),
+            Self::Ordered(n) => format!("{n}. "),
+        }
     }
+}
+
+/// Build the text prefix for the current list context.
+fn list_prefix(stack: &[ListKind]) -> Option<String> {
+    stack.last().map(ListKind::prefix)
 }
 
 #[cfg(test)]
