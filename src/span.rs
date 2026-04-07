@@ -231,6 +231,30 @@ impl Default for RichLine {
     }
 }
 
+impl From<Vec<StyledSpan>> for RichLine {
+    fn from(spans: Vec<StyledSpan>) -> Self {
+        Self { spans }
+    }
+}
+
+impl IntoIterator for RichLine {
+    type Item = StyledSpan;
+    type IntoIter = std::vec::IntoIter<StyledSpan>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.spans.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a RichLine {
+    type Item = &'a StyledSpan;
+    type IntoIter = std::slice::Iter<'a, StyledSpan>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.spans.iter()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -633,6 +657,36 @@ mod tests {
         assert_eq!(format!("{:?}", TextWeight::Normal), "Normal");
         assert_eq!(format!("{:?}", TextWeight::Bold), "Bold");
         assert_eq!(format!("{:?}", TextWeight::Light), "Light");
+    }
+
+    // ---- From / IntoIterator ----
+
+    #[test]
+    fn rich_line_from_vec() {
+        let spans = vec![StyledSpan::plain("a"), StyledSpan::plain("b")];
+        let line: RichLine = spans.into();
+        assert_eq!(line.len(), 2);
+        assert_eq!(line.plain_text(), "ab");
+    }
+
+    #[test]
+    fn rich_line_into_iter_owned() {
+        let line = RichLine::from_spans(vec![
+            StyledSpan::plain("x"),
+            StyledSpan::plain("y"),
+        ]);
+        let texts: Vec<String> = line.into_iter().map(|s| s.text).collect();
+        assert_eq!(texts, vec!["x", "y"]);
+    }
+
+    #[test]
+    fn rich_line_into_iter_ref() {
+        let line = RichLine::from_spans(vec![
+            StyledSpan::plain("a"),
+            StyledSpan::plain("b"),
+        ]);
+        let texts: Vec<&str> = (&line).into_iter().map(|s| s.text.as_str()).collect();
+        assert_eq!(texts, vec!["a", "b"]);
     }
 
     // ---- TextStyle with all decorations off ----
