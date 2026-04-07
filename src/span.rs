@@ -3,6 +3,7 @@ use unicode_width::UnicodeWidthStr;
 
 /// Font weight for a text span.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[non_exhaustive]
 pub enum TextWeight {
     /// Normal / regular weight.
     #[default]
