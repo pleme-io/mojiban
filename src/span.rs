@@ -232,6 +232,11 @@ impl RichLine {
     pub fn len(&self) -> usize {
         self.spans.len()
     }
+
+    /// Iterate over spans by reference.
+    pub fn iter(&self) -> std::slice::Iter<'_, StyledSpan> {
+        self.spans.iter()
+    }
 }
 
 impl Default for RichLine {
@@ -267,6 +272,26 @@ impl<'a> IntoIterator for &'a RichLine {
 impl Extend<StyledSpan> for RichLine {
     fn extend<I: IntoIterator<Item = StyledSpan>>(&mut self, iter: I) {
         self.spans.extend(iter);
+    }
+}
+
+impl FromIterator<StyledSpan> for RichLine {
+    fn from_iter<I: IntoIterator<Item = StyledSpan>>(iter: I) -> Self {
+        Self {
+            spans: iter.into_iter().collect(),
+        }
+    }
+}
+
+impl AsRef<[StyledSpan]> for RichLine {
+    fn as_ref(&self) -> &[StyledSpan] {
+        &self.spans
+    }
+}
+
+impl AsRef<str> for StyledSpan {
+    fn as_ref(&self) -> &str {
+        &self.text
     }
 }
 
@@ -748,6 +773,40 @@ mod tests {
         let span = StyledSpan::default();
         assert!(span.is_empty());
         assert_eq!(span.style, TextStyle::default());
+    }
+
+    #[test]
+    fn rich_line_from_iterator() {
+        let line: RichLine = vec![StyledSpan::plain("a"), StyledSpan::plain("b")]
+            .into_iter()
+            .collect();
+        assert_eq!(line.len(), 2);
+        assert_eq!(line.plain_text(), "ab");
+    }
+
+    #[test]
+    fn rich_line_as_ref_slice() {
+        let line = RichLine::from_spans(vec![StyledSpan::plain("x")]);
+        let slice: &[StyledSpan] = line.as_ref();
+        assert_eq!(slice.len(), 1);
+        assert_eq!(slice[0].text, "x");
+    }
+
+    #[test]
+    fn styled_span_as_ref_str() {
+        let span = StyledSpan::plain("hello");
+        let s: &str = span.as_ref();
+        assert_eq!(s, "hello");
+    }
+
+    #[test]
+    fn rich_line_iter_method() {
+        let line = RichLine::from_spans(vec![
+            StyledSpan::plain("a"),
+            StyledSpan::plain("b"),
+        ]);
+        let texts: Vec<&str> = line.iter().map(|s| s.text.as_str()).collect();
+        assert_eq!(texts, vec!["a", "b"]);
     }
 
     // ---- TextStyle with all decorations off ----
