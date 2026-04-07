@@ -137,6 +137,15 @@ pub struct StyledSpan {
     pub style: TextStyle,
 }
 
+impl Default for StyledSpan {
+    fn default() -> Self {
+        Self {
+            text: String::new(),
+            style: TextStyle::default(),
+        }
+    }
+}
+
 impl StyledSpan {
     /// Create a new styled span.
     #[must_use]
@@ -732,6 +741,13 @@ mod tests {
     fn styled_span_display() {
         let span = StyledSpan::new("test", TextStyle::bold());
         assert_eq!(span.to_string(), "test");
+    }
+
+    #[test]
+    fn styled_span_default() {
+        let span = StyledSpan::default();
+        assert!(span.is_empty());
+        assert_eq!(span.style, TextStyle::default());
     }
 
     // ---- TextStyle with all decorations off ----
