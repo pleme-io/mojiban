@@ -49,6 +49,15 @@ impl Default for SyntaxHighlighter {
     }
 }
 
+impl crate::TextProcessor for SyntaxHighlighter {
+    /// Process each line of the input as plain text (no language-specific
+    /// highlighting). Use [`SyntaxHighlighter::highlight_line`] directly
+    /// for language-aware coloring.
+    fn process(&self, input: &str) -> Vec<RichLine> {
+        input.lines().map(|l| self.highlight_line(l, "")).collect()
+    }
+}
+
 /// Internal tokenizer that walks a line character-by-character.
 struct Tokenizer<'a> {
     chars: Vec<char>,
@@ -815,5 +824,17 @@ mod tests {
         let _ = h.highlight_line("test", "rs");
         let _ = h.highlight_line("test", "nix");
         let _ = h.highlight_line("test", "unknown");
+    }
+
+    // ---- TextProcessor trait ----
+
+    #[test]
+    fn text_processor_trait_returns_plain_lines() {
+        use crate::TextProcessor;
+        let h = highlighter();
+        let lines = h.process("line one\nline two");
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0].plain_text(), "line one");
+        assert_eq!(lines[1].plain_text(), "line two");
     }
 }

@@ -127,6 +127,12 @@ impl Default for MarkdownParser {
     }
 }
 
+impl crate::TextProcessor for MarkdownParser {
+    fn process(&self, input: &str) -> Vec<RichLine> {
+        self.parse(input)
+    }
+}
+
 /// Tracks whether a list is ordered or unordered.
 #[derive(Debug, Clone)]
 enum ListKind {
@@ -152,6 +158,7 @@ fn list_prefix(stack: &[ListKind]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::TextProcessor;
 
     fn parser() -> MarkdownParser {
         MarkdownParser::new()
@@ -816,5 +823,16 @@ mod tests {
         let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join(" ");
         assert!(all_text.contains("first"));
         assert!(all_text.contains("second"));
+    }
+
+    // ---- TextProcessor trait ----
+
+    #[test]
+    fn text_processor_trait_produces_same_output_as_parse() {
+        let p = parser();
+        let input = "**bold** and *italic*";
+        let via_parse = p.parse(input);
+        let via_trait = TextProcessor::process(&p, input);
+        assert_eq!(via_parse, via_trait);
     }
 }
