@@ -1,3 +1,6 @@
+use std::fmt;
+use std::str::FromStr;
+
 use serde::{Deserialize, Serialize};
 use unicode_width::UnicodeWidthStr;
 
@@ -12,6 +15,36 @@ pub enum TextWeight {
     Bold,
     /// Light / thin weight.
     Light,
+}
+
+impl fmt::Display for TextWeight {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let label = match self {
+            Self::Normal => "Normal",
+            Self::Bold => "Bold",
+            Self::Light => "Light",
+            _ => "Unknown",
+        };
+        f.write_str(label)
+    }
+}
+
+/// Error returned when parsing an invalid [`TextWeight`] string.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("unknown text weight: {0:?}")]
+pub struct ParseTextWeightError(String);
+
+impl FromStr for TextWeight {
+    type Err = ParseTextWeightError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Normal" => Ok(Self::Normal),
+            "Bold" => Ok(Self::Bold),
+            "Light" => Ok(Self::Light),
+            _ => Err(ParseTextWeightError(s.to_owned())),
+        }
+    }
 }
 
 /// Visual style applied to a text span.
@@ -214,6 +247,36 @@ mod tests {
         assert_eq!(TextWeight::Bold, TextWeight::Bold);
         assert_ne!(TextWeight::Bold, TextWeight::Light);
         assert_ne!(TextWeight::Normal, TextWeight::Light);
+    }
+
+    #[test]
+    fn text_weight_display() {
+        assert_eq!(TextWeight::Normal.to_string(), "Normal");
+        assert_eq!(TextWeight::Bold.to_string(), "Bold");
+        assert_eq!(TextWeight::Light.to_string(), "Light");
+    }
+
+    #[test]
+    fn text_weight_from_str_valid() {
+        assert_eq!("Normal".parse::<TextWeight>().unwrap(), TextWeight::Normal);
+        assert_eq!("Bold".parse::<TextWeight>().unwrap(), TextWeight::Bold);
+        assert_eq!("Light".parse::<TextWeight>().unwrap(), TextWeight::Light);
+    }
+
+    #[test]
+    fn text_weight_from_str_invalid() {
+        let err = "nope".parse::<TextWeight>().unwrap_err();
+        assert_eq!(err, ParseTextWeightError("nope".to_owned()));
+        assert!(err.to_string().contains("nope"));
+    }
+
+    #[test]
+    fn text_weight_display_from_str_round_trip() {
+        for w in [TextWeight::Normal, TextWeight::Bold, TextWeight::Light] {
+            let s = w.to_string();
+            let parsed: TextWeight = s.parse().unwrap();
+            assert_eq!(parsed, w);
+        }
     }
 
     // ---- TextStyle ----
