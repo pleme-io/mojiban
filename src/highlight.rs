@@ -674,4 +674,157 @@ mod tests {
         assert_eq!(line.len(), 1);
         assert!(line.spans[0].is_empty());
     }
+
+    // ---- Rust attribute (regression: hash must not start comment in Rust) ----
+
+    #[test]
+    fn rust_attribute_not_treated_as_comment() {
+        let line = highlighter().highlight_line("#[derive(Debug)]", "rust");
+        let comment_spans: Vec<_> = line.spans.iter()
+            .filter(|s| s.style.color == colors::COMMENT)
+            .collect();
+        assert!(comment_spans.is_empty(), "#[derive] should not be a comment in Rust");
+        assert_eq!(line.plain_text(), "#[derive(Debug)]");
+    }
+
+    #[test]
+    fn rust_hash_in_macro_not_comment() {
+        let line = highlighter().highlight_line("#![allow(unused)]", "rust");
+        let comment_spans: Vec<_> = line.spans.iter()
+            .filter(|s| s.style.color == colors::COMMENT)
+            .collect();
+        assert!(comment_spans.is_empty());
+    }
+
+    #[test]
+    fn nix_hash_still_is_comment() {
+        let line = highlighter().highlight_line("# nix comment", "nix");
+        assert_eq!(line.spans.len(), 1);
+        assert_eq!(line.spans[0].style.color, colors::COMMENT);
+    }
+
+    // ---- Unterminated string ----
+
+    #[test]
+    fn unterminated_string_no_panic() {
+        let line = highlighter().highlight_line(r#"let s = "unterminated"#, "rust");
+        assert_eq!(line.plain_text(), r#"let s = "unterminated"#);
+    }
+
+    #[test]
+    fn unterminated_single_quote_no_panic() {
+        let line = highlighter().highlight_line("let c = 'x", "rust");
+        assert_eq!(line.plain_text(), "let c = 'x");
+    }
+
+    // ---- Only punctuation ----
+
+    #[test]
+    fn punctuation_only() {
+        let line = highlighter().highlight_line("(){};,.", "rust");
+        assert_eq!(line.plain_text(), "(){};,.");
+        for span in &line.spans {
+            assert_eq!(span.style, TextStyle::default());
+        }
+    }
+
+    // ---- Code with trailing whitespace ----
+
+    #[test]
+    fn trailing_whitespace_preserved() {
+        let line = highlighter().highlight_line("fn main()   ", "rust");
+        assert_eq!(line.plain_text(), "fn main()   ");
+    }
+
+    // ---- Leading whitespace before keyword ----
+
+    #[test]
+    fn leading_whitespace_before_keyword() {
+        let line = highlighter().highlight_line("    fn main()", "rust");
+        let kw = line.spans.iter().find(|s| s.text == "fn");
+        assert!(kw.is_some());
+        assert_eq!(kw.unwrap().style.color, colors::KEYWORD);
+        assert_eq!(line.plain_text(), "    fn main()");
+    }
+
+    // ---- String containing keyword ----
+
+    #[test]
+    fn keyword_inside_string_not_highlighted_separately() {
+        let line = highlighter().highlight_line(r#"let s = "fn let pub";"#, "rust");
+        let fn_kw = line.spans.iter().find(|s| s.text == "fn" && s.style.color == colors::KEYWORD);
+        assert!(fn_kw.is_none(), "'fn' inside string should not be a keyword");
+    }
+
+    // ---- Number followed by keyword ----
+
+    #[test]
+    fn number_then_keyword() {
+        let line = highlighter().highlight_line("42 fn", "rust");
+        let num = line.spans.iter().find(|s| s.text == "42");
+        assert!(num.is_some());
+        assert_eq!(num.unwrap().style.color, colors::NUMBER);
+        let kw = line.spans.iter().find(|s| s.text == "fn");
+        assert!(kw.is_some());
+        assert_eq!(kw.unwrap().style.color, colors::KEYWORD);
+    }
+
+    // ---- Multiple lines independently ----
+
+    #[test]
+    fn highlight_line_is_stateless() {
+        let h = highlighter();
+        let l1 = h.highlight_line("fn foo()", "rust");
+        let l2 = h.highlight_line("let x = 1;", "rust");
+        assert!(l1.spans.iter().any(|s| s.text == "fn"));
+        assert!(l2.spans.iter().any(|s| s.text == "let"));
+    }
+
+    // ---- Nix if-then-else ----
+
+    #[test]
+    fn nix_if_then_else() {
+        let line = highlighter().highlight_line("if x then y else z", "nix");
+        for kw in &["if", "then", "else"] {
+            let found = line.spans.iter().find(|s| s.text == *kw);
+            assert!(found.is_some(), "Nix keyword '{kw}' should be found");
+            assert_eq!(found.unwrap().style.color, colors::KEYWORD);
+        }
+    }
+
+    // ---- Nix import with path ----
+
+    #[test]
+    fn nix_import_path() {
+        let line = highlighter().highlight_line("import ./default.nix", "nix");
+        let kw = line.spans.iter().find(|s| s.text == "import");
+        assert!(kw.is_some());
+        assert_eq!(kw.unwrap().style.color, colors::KEYWORD);
+        assert_eq!(line.plain_text(), "import ./default.nix");
+    }
+
+    // ---- Complex Rust line ----
+
+    #[test]
+    fn complex_rust_line() {
+        let input = "pub async fn process(data: &str) -> Result<String, Error> {";
+        let line = highlighter().highlight_line(input, "rust");
+        assert_eq!(line.plain_text(), input);
+        for kw in &["pub", "async", "fn"] {
+            let found = line.spans.iter().find(|s| s.text == *kw);
+            assert!(found.is_some(), "keyword '{kw}' should be found");
+            assert_eq!(found.unwrap().style.color, colors::KEYWORD);
+        }
+    }
+
+    // ---- Highlight the SyntaxHighlighter::default() returns usable instance ----
+
+    #[test]
+    fn default_instance_works_for_all_languages() {
+        let h = SyntaxHighlighter::default();
+        let _ = h.highlight_line("test", "rust");
+        let _ = h.highlight_line("test", "rs");
+        let _ = h.highlight_line("test", "nix");
+        let _ = h.highlight_line("test", "unknown");
+    }
 }
