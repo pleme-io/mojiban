@@ -255,6 +255,27 @@ impl<'a> IntoIterator for &'a RichLine {
     }
 }
 
+impl Extend<StyledSpan> for RichLine {
+    fn extend<I: IntoIterator<Item = StyledSpan>>(&mut self, iter: I) {
+        self.spans.extend(iter);
+    }
+}
+
+impl fmt::Display for RichLine {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for span in &self.spans {
+            f.write_str(&span.text)?;
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Display for StyledSpan {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.text)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -687,6 +708,30 @@ mod tests {
         ]);
         let texts: Vec<&str> = (&line).into_iter().map(|s| s.text.as_str()).collect();
         assert_eq!(texts, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn rich_line_extend() {
+        let mut line = RichLine::new();
+        let extra = vec![StyledSpan::plain("a"), StyledSpan::plain("b")];
+        line.extend(extra);
+        assert_eq!(line.len(), 2);
+        assert_eq!(line.plain_text(), "ab");
+    }
+
+    #[test]
+    fn rich_line_display() {
+        let line = RichLine::from_spans(vec![
+            StyledSpan::plain("hello "),
+            StyledSpan::new("world", TextStyle::bold()),
+        ]);
+        assert_eq!(line.to_string(), "hello world");
+    }
+
+    #[test]
+    fn styled_span_display() {
+        let span = StyledSpan::new("test", TextStyle::bold());
+        assert_eq!(span.to_string(), "test");
     }
 
     // ---- TextStyle with all decorations off ----
