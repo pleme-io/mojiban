@@ -641,4 +641,181 @@ mod tests {
         let first = &lines[0].spans[0];
         assert_eq!(first.style, TextStyle::default());
     }
+
+    // ---- Links ----
+
+    #[test]
+    fn inline_link_text_preserved() {
+        let lines = parser().parse("[click here](https://example.com)");
+        assert_eq!(lines.len(), 1);
+        assert!(lines[0].plain_text().contains("click here"));
+    }
+
+    #[test]
+    fn link_with_bold_text() {
+        let lines = parser().parse("[**bold link**](https://example.com)");
+        assert_eq!(lines.len(), 1);
+        let bold = lines[0].spans.iter().find(|s| s.text == "bold link");
+        assert!(bold.is_some(), "bold text inside link should be present");
+        assert_eq!(bold.unwrap().style.weight, TextWeight::Bold);
+    }
+
+    #[test]
+    fn autolink_produces_text() {
+        let lines = parser().parse("<https://example.com>");
+        assert_eq!(lines.len(), 1);
+        assert!(lines[0].plain_text().contains("https://example.com"));
+    }
+
+    // ---- Images ----
+
+    #[test]
+    fn image_alt_text_preserved() {
+        let lines = parser().parse("![alt text](image.png)");
+        assert_eq!(lines.len(), 1);
+        assert!(lines[0].plain_text().contains("alt text"));
+    }
+
+    // ---- Nested lists ----
+
+    #[test]
+    fn nested_unordered_list() {
+        let input = "- outer\n  - inner";
+        let lines = parser().parse(input);
+        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join("\n");
+        assert!(all_text.contains("outer"));
+        assert!(all_text.contains("inner"));
+    }
+
+    #[test]
+    fn ordered_inside_unordered() {
+        let input = "- item\n  1. sub one\n  2. sub two";
+        let lines = parser().parse(input);
+        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join("\n");
+        assert!(all_text.contains("item"));
+        assert!(all_text.contains("sub one"));
+        assert!(all_text.contains("sub two"));
+    }
+
+    // ---- Tables ----
+
+    #[test]
+    fn table_cell_text_preserved() {
+        let input = "| A | B |\n|---|---|\n| 1 | 2 |";
+        let lines = parser().parse(input);
+        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join(" ");
+        assert!(all_text.contains('A'));
+        assert!(all_text.contains('B'));
+        assert!(all_text.contains('1'));
+        assert!(all_text.contains('2'));
+    }
+
+    // ---- Fenced code block with language tag ----
+
+    #[test]
+    fn fenced_code_block_with_language() {
+        let input = "```rust\nfn main() {}\n```";
+        let lines = parser().parse(input);
+        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join("\n");
+        assert!(all_text.contains("fn main()"));
+    }
+
+    // ---- Horizontal rule ----
+
+    #[test]
+    fn horizontal_rule_does_not_panic() {
+        let lines = parser().parse("---");
+        // May produce empty or non-empty output; key constraint is no crash
+        let _ = lines;
+    }
+
+    // ---- Escape sequences ----
+
+    #[test]
+    fn escaped_asterisks_not_bold() {
+        let lines = parser().parse(r"\*not bold\*");
+        assert_eq!(lines.len(), 1);
+        let text = lines[0].plain_text();
+        assert!(text.contains("*not bold*"));
+        for span in &lines[0].spans {
+            assert_eq!(span.style.weight, TextWeight::Normal);
+        }
+    }
+
+    // ---- Deeply nested formatting ----
+
+    #[test]
+    fn bold_italic_strikethrough_combined() {
+        let lines = parser().parse("~~***all three***~~");
+        assert_eq!(lines.len(), 1);
+        let span = &lines[0].spans[0];
+        assert_eq!(span.text, "all three");
+        assert_eq!(span.style.weight, TextWeight::Bold);
+        assert!(span.style.italic);
+        assert!(span.style.strikethrough);
+    }
+
+    // ---- Empty list items ----
+
+    #[test]
+    fn empty_list_item() {
+        let input = "- \n- text";
+        let lines = parser().parse(input);
+        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join(" ");
+        assert!(all_text.contains("text"));
+    }
+
+    // ---- Paragraph after heading ----
+
+    #[test]
+    fn paragraph_after_heading() {
+        let lines = parser().parse("# Title\n\nBody text here.");
+        assert!(lines.len() >= 2);
+        assert_eq!(lines[0].spans[0].style.weight, TextWeight::Bold);
+        let body = lines.iter().find(|l| l.plain_text().contains("Body"));
+        assert!(body.is_some());
+        assert_eq!(body.unwrap().spans[0].style, TextStyle::default());
+    }
+
+    // ---- Only whitespace spans ----
+
+    #[test]
+    fn tab_only_paragraph() {
+        let lines = parser().parse("\t");
+        for line in &lines {
+            assert!(line.plain_text().trim().is_empty() || line.is_empty());
+        }
+    }
+
+    // ---- Very long line ----
+
+    #[test]
+    fn very_long_line() {
+        let long = "x".repeat(10_000);
+        let lines = parser().parse(&long);
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].plain_text().len(), 10_000);
+    }
+
+    // ---- Multiple inline code spans adjacent ----
+
+    #[test]
+    fn adjacent_inline_code() {
+        let lines = parser().parse("`a``b`");
+        assert_eq!(lines.len(), 1);
+        let text = lines[0].plain_text();
+        assert!(text.contains('a'));
+        assert!(text.contains('b'));
+    }
+
+    // ---- Blockquote with multiple paragraphs ----
+
+    #[test]
+    fn blockquote_with_multiple_paragraphs() {
+        let input = "> first\n>\n> second";
+        let lines = parser().parse(input);
+        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join(" ");
+        assert!(all_text.contains("first"));
+        assert!(all_text.contains("second"));
+    }
 }
