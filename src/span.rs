@@ -19,13 +19,11 @@ pub enum TextWeight {
 
 impl fmt::Display for TextWeight {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let label = match self {
+        f.write_str(match self {
             Self::Normal => "Normal",
             Self::Bold => "Bold",
             Self::Light => "Light",
-            _ => "Unknown",
-        };
-        f.write_str(label)
+        })
     }
 }
 
@@ -142,21 +140,12 @@ impl TextStyle {
 }
 
 /// A contiguous run of text sharing the same style.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct StyledSpan {
     /// The text content of this span.
     pub text: String,
     /// The visual style applied to this span.
     pub style: TextStyle,
-}
-
-impl Default for StyledSpan {
-    fn default() -> Self {
-        Self {
-            text: String::new(),
-            style: TextStyle::default(),
-        }
-    }
 }
 
 impl StyledSpan {
