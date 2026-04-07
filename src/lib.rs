@@ -9,7 +9,7 @@
 //! - [`StyledSpan`]: text + color + weight + decoration
 //! - [`TextProcessor`]: trait for text-to-styled-spans processors
 
-pub(crate) mod colors;
+pub mod colors;
 pub mod highlight;
 pub mod markdown;
 pub mod span;
@@ -25,5 +25,6 @@ pub use span::{ParseTextWeightError, RichLine, StyledSpan, TextStyle, TextWeight
 /// and [`SyntaxHighlighter`] implement this trait.
 pub trait TextProcessor {
     /// Process source text into styled lines.
+    #[must_use]
     fn process(&self, input: &str) -> Vec<RichLine>;
 }
