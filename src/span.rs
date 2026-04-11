@@ -881,4 +881,131 @@ mod tests {
         assert!(!style.strikethrough);
         assert_eq!(style.weight, TextWeight::Normal);
     }
+
+    // ---- has_decoration with multiple decorations ----
+
+    #[test]
+    fn has_decoration_all_three() {
+        let style = TextStyle::default()
+            .with_italic()
+            .with_underline()
+            .with_strikethrough();
+        assert!(style.has_decoration());
+    }
+
+    #[test]
+    fn has_decoration_italic_and_underline() {
+        let style = TextStyle::default().with_italic().with_underline();
+        assert!(style.has_decoration());
+        assert!(!style.strikethrough);
+    }
+
+    // ---- with_color chaining preserves other fields ----
+
+    #[test]
+    fn with_color_preserves_decorations() {
+        let style = TextStyle::bold()
+            .with_italic()
+            .with_underline()
+            .with_color([0.5, 0.5, 0.5, 1.0]);
+        assert_eq!(style.color, [0.5, 0.5, 0.5, 1.0]);
+        assert_eq!(style.weight, TextWeight::Bold);
+        assert!(style.italic);
+        assert!(style.underline);
+    }
+
+    // ---- map_text preserves span count ----
+
+    #[test]
+    fn map_text_preserves_span_count() {
+        let line = RichLine::from_spans(vec![
+            StyledSpan::plain("a"),
+            StyledSpan::new("b", TextStyle::bold()),
+            StyledSpan::plain("c"),
+        ]);
+        let mapped = line.map_text(|t| t.to_uppercase());
+        assert_eq!(mapped.len(), 3);
+        assert_eq!(mapped.spans[0].text, "A");
+        assert_eq!(mapped.spans[1].text, "B");
+        assert_eq!(mapped.spans[2].text, "C");
+    }
+
+    // ---- retain removing all spans ----
+
+    #[test]
+    fn retain_removes_all() {
+        let mut line = RichLine::from_spans(vec![
+            StyledSpan::plain("a"),
+            StyledSpan::plain("b"),
+        ]);
+        line.retain(|_| false);
+        assert!(line.is_empty());
+        assert_eq!(line.len(), 0);
+    }
+
+    // ---- FromIterator with empty iterator ----
+
+    #[test]
+    fn from_iterator_empty() {
+        let line: RichLine = std::iter::empty::<StyledSpan>().collect();
+        assert!(line.is_empty());
+        assert_eq!(line.plain_text(), "");
+    }
+
+    // ---- Display for empty line ----
+
+    #[test]
+    fn display_empty_line() {
+        let line = RichLine::new();
+        assert_eq!(line.to_string(), "");
+    }
+
+    // ---- StyledSpan width for zero-width characters ----
+
+    #[test]
+    fn styled_span_width_zero_width_chars() {
+        // Zero-width space U+200B
+        let span = StyledSpan::plain("\u{200B}");
+        assert_eq!(span.width(), 0);
+        assert_eq!(span.len(), 3); // 3 bytes in UTF-8
+    }
+
+    // ---- TextWeight serde roundtrip ----
+
+    #[test]
+    fn text_weight_serde_roundtrip() {
+        for w in [TextWeight::Normal, TextWeight::Bold, TextWeight::Light] {
+            let json = serde_json::to_string(&w).unwrap();
+            let back: TextWeight = serde_json::from_str(&json).unwrap();
+            assert_eq!(w, back);
+        }
+    }
+
+    // ---- ParseTextWeightError display and debug ----
+
+    #[test]
+    fn parse_text_weight_error_display() {
+        let err = ParseTextWeightError("invalid".to_owned());
+        let display = err.to_string();
+        assert!(display.contains("invalid"));
+        assert!(display.contains("unknown text weight"));
+    }
+
+    #[test]
+    fn parse_text_weight_error_debug() {
+        let err = ParseTextWeightError("bad".to_owned());
+        let debug = format!("{err:?}");
+        assert!(debug.contains("ParseTextWeightError"));
+        assert!(debug.contains("bad"));
+    }
+
+    // ---- RichLine extend from empty ----
+
+    #[test]
+    fn extend_from_empty_into_non_empty() {
+        let mut line = RichLine::from_spans(vec![StyledSpan::plain("existing")]);
+        line.extend(Vec::<StyledSpan>::new());
+        assert_eq!(line.len(), 1);
+        assert_eq!(line.plain_text(), "existing");
+    }
 }
