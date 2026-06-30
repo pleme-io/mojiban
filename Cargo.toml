@@ -29,3 +29,8 @@ unicode-width = "0.2"
 
 [dev-dependencies]
 serde_json = "1"
+# Fleet design-system source of truth. Used only by the colors.rs convergence
+# drift test (the library analog of `ishou_tokens::convergence::Guard`) to pin
+# mojiban's syntax palette to the canonical ishou Nord tokens — kept out of
+# `[dependencies]` so the published library stays runtime-lean.
+ishou-tokens = "0.1"
