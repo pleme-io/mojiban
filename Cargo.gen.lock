@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "cargo_lock_sha256": "66956f0394848ee58ece0f3fc92527cbc1c4dfc8ec9fe3ce621694ffdc801858",
+  "cargo_lock_sha256": "a1260dcfd64e77b91e01c1741969f6e4dd03daf800a6c4a361d36e62f1a15399",
   "target_resolves": {
     "base": {
-      "bitflags-2.11.1": {
+      "bitflags-2.13.1": {
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
@@ -100,7 +100,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "memchr-2.8.0": {
+      "memchr-2.8.3": {
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": [
@@ -109,7 +109,7 @@
           "std"
         ]
       },
-      "mojiban-0.1.1": {
+      "mojiban-0.1.2": {
         "runtime_dependencies": [
           {
             "name": "pulldown_cmark",
@@ -205,7 +205,7 @@
         "runtime_dependencies": [
           {
             "name": "bitflags",
-            "package_key": "bitflags-2.11.1",
+            "package_key": "bitflags-2.13.1",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -225,7 +225,7 @@
           },
           {
             "name": "memchr",
-            "package_key": "memchr-2.8.0",
+            "package_key": "memchr-2.8.3",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -267,7 +267,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "quote-1.0.45": {
+      "quote-1.0.46": {
         "runtime_dependencies": [
           {
             "name": "proc_macro2",
@@ -343,7 +343,7 @@
           },
           {
             "name": "quote",
-            "package_key": "quote-1.0.45",
+            "package_key": "quote-1.0.46",
             "kind": "normal",
             "features": [
               "proc-macro"
@@ -355,7 +355,7 @@
           },
           {
             "name": "syn",
-            "package_key": "syn-2.0.117",
+            "package_key": "syn-2.0.119",
             "kind": "normal",
             "features": [
               "clone-impls",
@@ -389,7 +389,7 @@
           },
           {
             "name": "memchr",
-            "package_key": "memchr-2.8.0",
+            "package_key": "memchr-2.8.3",
             "kind": "normal",
             "features": [],
             "uses_default_features": false,
@@ -409,7 +409,7 @@
           },
           {
             "name": "zmij",
-            "package_key": "zmij-1.0.21",
+            "package_key": "zmij-1.0.23",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -424,7 +424,7 @@
           "std"
         ]
       },
-      "syn-2.0.117": {
+      "syn-2.0.119": {
         "runtime_dependencies": [
           {
             "name": "proc_macro2",
@@ -438,7 +438,7 @@
           },
           {
             "name": "quote",
-            "package_key": "quote-1.0.45",
+            "package_key": "quote-1.0.46",
             "kind": "normal",
             "features": [],
             "uses_default_features": false,
@@ -503,7 +503,7 @@
           },
           {
             "name": "quote",
-            "package_key": "quote-1.0.45",
+            "package_key": "quote-1.0.46",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -513,7 +513,7 @@
           },
           {
             "name": "syn",
-            "package_key": "syn-2.0.117",
+            "package_key": "syn-2.0.119",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -580,7 +580,7 @@
           },
           {
             "name": "quote",
-            "package_key": "quote-1.0.45",
+            "package_key": "quote-1.0.46",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -590,7 +590,7 @@
           },
           {
             "name": "syn",
-            "package_key": "syn-2.0.117",
+            "package_key": "syn-2.0.119",
             "kind": "normal",
             "features": [
               "clone-impls",
@@ -647,7 +647,7 @@
           "default"
         ]
       },
-      "zmij-1.0.21": {
+      "zmij-1.0.23": {
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
@@ -675,7 +675,7 @@
     }
   },
   "per_crate": {
-    "bitflags-2.11.1": {
+    "bitflags-2.13.1": {
       "edition": "2021"
     },
     "getopts-0.2.24": {
@@ -690,10 +690,10 @@
     "itoa-1.0.18": {
       "edition": "2021"
     },
-    "memchr-2.8.0": {
+    "memchr-2.8.3": {
       "edition": "2021"
     },
-    "mojiban-0.1.1": {
+    "mojiban-0.1.2": {
       "edition": "2024",
       "lib_target": {
         "name": "mojiban",
@@ -723,7 +723,7 @@
     "pulldown-cmark-escape-0.11.0": {
       "edition": "2021"
     },
-    "quote-1.0.45": {
+    "quote-1.0.46": {
       "edition": "2021",
       "build_script": "build.rs"
     },
@@ -743,7 +743,7 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
-    "syn-2.0.117": {
+    "syn-2.0.119": {
       "edition": "2021"
     },
     "thiserror-2.0.18": {
@@ -773,7 +773,7 @@
     "unicode-width-0.2.2": {
       "edition": "2021"
     },
-    "zmij-1.0.21": {
+    "zmij-1.0.23": {
       "edition": "2021",
       "build_script": "build.rs"
     }
