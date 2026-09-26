@@ -1,6 +1,7 @@
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 
 use crate::colors;
+use crate::highlight::SyntaxHighlighter;
 use crate::span::{RichLine, StyledSpan, TextStyle, TextWeight};
 
 /// Stateless markdown-to-styled-spans processor.
@@ -37,6 +38,12 @@ impl MarkdownParser {
         let mut style_stack: Vec<TextStyle> = vec![TextStyle::default()];
         let mut list_stack: Vec<ListKind> = Vec::new();
         let mut need_list_prefix = false;
+        // Inside a fenced/indented code block: its language (possibly "").
+        // Code text arrives as ONE event carrying embedded newlines; it is
+        // split into one RichLine per source line and each line highlighted,
+        // rather than emitted as a single span a renderer draws as one row.
+        let mut code_lang: Option<String> = None;
+        let highlighter = SyntaxHighlighter::new();
 
         for event in parser {
             match event {
@@ -57,6 +64,17 @@ impl MarkdownParser {
                         }
                         Tag::Item => {
                             need_list_prefix = true;
+                        }
+                        Tag::CodeBlock(kind) => {
+                            if !current_line.spans.is_empty() {
+                                lines.push(std::mem::take(&mut current_line));
+                            }
+                            code_lang = Some(match kind {
+                                pulldown_cmark::CodeBlockKind::Fenced(info) => {
+                                    info.split_whitespace().next().unwrap_or("").to_owned()
+                                }
+                                pulldown_cmark::CodeBlockKind::Indented => String::new(),
+                            });
                         }
                         _ => {}
                     }
@@ -80,7 +98,16 @@ impl MarkdownParser {
                         TagEnd::List(_) => {
                             list_stack.pop();
                         }
+                        TagEnd::CodeBlock => {
+                            code_lang = None;
+                        }
                         _ => {}
+                    }
+                }
+                Event::Text(text) if code_lang.is_some() => {
+                    let lang = code_lang.as_deref().unwrap_or("");
+                    for line in text.lines() {
+                        lines.push(highlighter.highlight_line(line, lang));
                     }
                 }
                 Event::Text(text) => {
@@ -601,10 +628,11 @@ mod tests {
     fn fenced_code_block_produces_lines() {
         let input = "```\nlet x = 1;\nlet y = 2;\n```";
         let lines = parser().parse(input);
-        // Code block content should appear in some form
-        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join("\n");
-        assert!(all_text.contains("let x = 1;") || all_text.contains("let x = 1"),
-                "code block content should be present: {all_text:?}");
+        // One RichLine per source line — not one span carrying a newline,
+        // which a renderer draws as a single garbled row.
+        let texts: Vec<String> = lines.iter().map(RichLine::plain_text).collect();
+        assert_eq!(texts, ["let x = 1;", "let y = 2;"]);
+        assert!(lines.iter().all(|l| l.spans.iter().all(|s| !s.text.contains('\n'))));
     }
 
     // ---- Long document ----
@@ -722,8 +750,12 @@ mod tests {
     fn fenced_code_block_with_language() {
         let input = "```rust\nfn main() {}\n```";
         let lines = parser().parse(input);
-        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join("\n");
-        assert!(all_text.contains("fn main()"));
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].plain_text(), "fn main() {}");
+        // The fence's language reaches the highlighter: `fn` is a keyword,
+        // so it is styled differently from the identifier after it.
+        let styles: Vec<_> = lines[0].spans.iter().map(|s| s.style).collect();
+        assert!(styles.windows(2).any(|w| w[0] != w[1]), "rust keywords must be highlighted");
     }
 
     // ---- Horizontal rule ----
@@ -834,5 +866,18 @@ mod tests {
         let via_parse = p.parse(input);
         let via_trait = TextProcessor::process(&p, input);
         assert_eq!(via_parse, via_trait);
+    }
+
+    #[test]
+    fn code_block_between_paragraphs_keeps_its_rows() {
+        let input = "Before:\n\n```nix\n{ x = 1; }\n# note\n```\n\nAfter.";
+        let texts: Vec<String> = parser().parse(input).iter().map(RichLine::plain_text).collect();
+        assert_eq!(texts, ["Before:", "{ x = 1; }", "# note", "After."]);
+    }
+
+    #[test]
+    fn indented_code_block_is_split_too() {
+        let texts: Vec<String> = parser().parse("    a\n    b\n").iter().map(RichLine::plain_text).collect();
+        assert_eq!(texts, ["a", "b"]);
     }
 }
