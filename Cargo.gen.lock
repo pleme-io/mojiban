@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "e90392bc8be81ceabedf37cb3eb3d87efc8d16b716b9308d342515bd27d494f2",
+  "cargo_lock_sha256": "d6cb9e24237235824a9cfd9e05596768f6ed059c809941c534f998d689beffb2",
   "manifest_sha256": {
-    "Cargo.toml": "bfc7effddbc218a0677e4a4cd6f44ac86324765c656aa69fdb3b1c98ffd097d8"
+    "Cargo.toml": "e87822370574393c6a65c87842761f4854318bf0d663ded8bdab413df16aa59f"
   },
   "target_resolves": {
     "base": {
@@ -283,7 +283,7 @@
           "std"
         ]
       },
-      "mojiban-0.1.7": {
+      "mojiban-0.1.8": {
         "runtime_dependencies": [
           {
             "name": "egaku",
@@ -1153,7 +1153,7 @@
     "memchr-2.8.3": {
       "edition": "2021"
     },
-    "mojiban-0.1.7": {
+    "mojiban-0.1.8": {
       "edition": "2024",
       "lib_target": {
         "name": "mojiban",
