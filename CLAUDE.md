@@ -37,7 +37,14 @@ Application (chat messages, terminal, browser)
 
 ### Consumers
 
-- **fumi**: chat message markdown rendering
+New consumers use `render_markdown` / `layout` (rows + role table), not
+`MarkdownParser` (no wrapping, no width). TTY hosts map roles through
+`egaku_term::markdown` (feature `markdown`); do not write a second role map.
+
+- **fumi**: chat message bodies via `render_markdown` at `message_cols` (no GPU draw yet)
+- **hikki**: note preview via `render_markdown` at pane width, spans to glyphon `Attrs` (the one GPU adapter so far; lift into garasu when a second GPU host draws rows)
+- **mill** (typemill): `mill docs` via `render_markdown` + `egaku_term::markdown::write_ansi`
+- **arnes**: assistant transcript (its own role map; candidate to adopt `egaku_term::markdown::role_style`)
 - **nami**: HTML content rendering
 - **mado**: terminal escape sequence styling (future)
 - **hibiki**: lyrics display
