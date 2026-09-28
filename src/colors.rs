@@ -152,3 +152,7 @@ mod tests {
         }
     }
 }
+
+/// Aurora yellow — TeX math rendered to Unicode. ishou
+/// `ColorPalette::pleme().aurora_yellow` (Nord `#EBCB8B`).
+pub const MATH: [f32; 4] = nord_rgba(0xEB, 0xCB, 0x8B);

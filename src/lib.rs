@@ -4,6 +4,7 @@
 //! ready for GPU text rendering.
 //!
 //! - [`MarkdownParser`]: pulldown-cmark to styled spans
+//! - [`tex_to_unicode`]: TeX math to readable Unicode (markdown uses it)
 //! - [`SyntaxHighlighter`]: simple keyword-based syntax coloring
 //! - [`RichLine`]: line of styled spans
 //! - [`StyledSpan`]: text + color + weight + decoration
@@ -12,10 +13,12 @@
 pub mod colors;
 pub mod highlight;
 pub mod markdown;
+pub mod math;
 pub mod span;
 
 pub use highlight::SyntaxHighlighter;
 pub use markdown::MarkdownParser;
+pub use math::tex_to_unicode;
 pub use span::{ParseTextWeightError, RichLine, StyledSpan, TextStyle, TextWeight};
 
 /// A processor that converts source text into styled lines.

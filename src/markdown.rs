@@ -27,11 +27,14 @@ impl MarkdownParser {
     /// - `# Heading` — bold weight
     /// - `> quote` — muted color
     /// - `- item` / `1. item` — plain with bullet/number prefix
+    /// - `$…$` / `\\(…\\)` — inline TeX math, rendered to Unicode
+    /// - `$$…$$` / `\\[…\\]` — display TeX math, its own indented lines
     /// - Plain text — default style
     #[must_use]
     pub fn parse(&self, markdown: &str) -> Vec<RichLine> {
-        let options = Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TABLES;
-        let parser = Parser::new_ext(markdown, options);
+        let options = Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TABLES | Options::ENABLE_MATH;
+        let markdown = normalize_math_delimiters(markdown);
+        let parser = Parser::new_ext(&markdown, options);
 
         let mut lines: Vec<RichLine> = Vec::new();
         let mut current_line = RichLine::new();
@@ -188,6 +191,28 @@ impl MarkdownParser {
                     }
                     current_line.push(StyledSpan::new(code.to_string(), style));
                 }
+                Event::InlineMath(tex) => {
+                    let mut style = style_stack.last().copied().unwrap_or_default();
+                    style.color = colors::MATH;
+                    if need_list_prefix {
+                        if let Some(prefix) = list_prefix(&list_stack) {
+                            current_line.push(StyledSpan::new(prefix, style_stack.last().copied().unwrap_or_default()));
+                        }
+                        need_list_prefix = false;
+                    }
+                    current_line.push(StyledSpan::new(crate::math::tex_to_unicode(&tex).join(" "), style));
+                }
+                Event::DisplayMath(tex) => {
+                    if !current_line.spans.is_empty() {
+                        lines.push(std::mem::take(&mut current_line));
+                    }
+                    let style = TextStyle { color: colors::MATH, ..TextStyle::default() };
+                    for l in crate::math::tex_to_unicode(&tex) {
+                        let mut line = RichLine::new();
+                        line.push(StyledSpan::new(format!("{DISPLAY_MATH_INDENT}{l}"), style));
+                        lines.push(line);
+                    }
+                }
                 Event::SoftBreak | Event::HardBreak => {
                     lines.push(std::mem::take(&mut current_line));
                 }
@@ -276,6 +301,66 @@ impl TableBuf {
         }
         out
     }
+}
+
+/// Display math sits indented under the prose around it.
+const DISPLAY_MATH_INDENT: &str = "    ";
+
+/// Rewrite LaTeX's `\\[…\\]` and `\\(…\\)` to the `$$…$$` / `$…$` pulldown-cmark
+/// recognises. Without this, CommonMark reads `\\[` as an escaped bracket and
+/// a model's display math renders as a bare `[` over raw TeX. Only a pair
+/// with its closer converts; fenced code and inline code spans are skipped.
+fn normalize_math_delimiters(src: &str) -> std::borrow::Cow<'_, str> {
+    if !src.contains("\\[") && !src.contains("\\(") {
+        return std::borrow::Cow::Borrowed(src);
+    }
+    std::borrow::Cow::Owned(convert_pairs(src))
+}
+
+fn convert_pairs(src: &str) -> String {
+    let bytes = src.as_bytes();
+    let mut out = String::with_capacity(src.len());
+    let mut i = 0;
+    let mut line_start = true;
+    let mut in_fence = false;
+    let mut in_code: usize = 0;
+    while i < bytes.len() {
+        if line_start {
+            let rest = &src[i..];
+            let t = rest.trim_start_matches([' ', '\t']);
+            if t.starts_with("```") || t.starts_with("~~~") {
+                in_fence = !in_fence;
+            }
+        }
+        let c = bytes[i];
+        line_start = c == b'\n';
+        if !in_fence && c == b'`' {
+            let run = bytes[i..].iter().take_while(|&&b| b == b'`').count();
+            if in_code == 0 {
+                in_code = run;
+            } else if in_code == run {
+                in_code = 0;
+            }
+            out.push_str(&src[i..i + run]);
+            i += run;
+            continue;
+        }
+        if !in_fence && in_code == 0 && c == b'\\' && i + 1 < bytes.len() && matches!(bytes[i + 1], b'[' | b'(') {
+            let (close, delim) = if bytes[i + 1] == b'[' { ("\\]", "$$") } else { ("\\)", "$") };
+            if let Some(end) = src[i + 2..].find(close) {
+                let body = &src[i + 2..i + 2 + end];
+                out.push_str(delim);
+                out.push_str(body.trim());
+                out.push_str(delim);
+                i += 2 + end + 2;
+                continue;
+            }
+        }
+        let ch = src[i..].chars().next().unwrap_or(' ');
+        out.push(ch);
+        i += ch.len_utf8();
+    }
+    out
 }
 
 /// Tracks whether a list is ordered or unordered.
@@ -1039,5 +1124,55 @@ mod tests {
         let texts: Vec<String> = parser().parse("| k | v |\n|---|---|\n| 日本 | x |\n| a | y |\n").iter().map(RichLine::plain_text).collect();
         // 日本 is 4 columns wide, so `a` is padded by 3 to match it.
         assert_eq!(texts[3], "a    \u{2502} y");
+    }
+
+    fn texts(md: &str) -> Vec<String> {
+        MarkdownParser::new()
+            .parse(md)
+            .iter()
+            .map(|l| l.spans.iter().map(|s| s.text.as_str()).collect())
+            .collect()
+    }
+
+    #[test]
+    fn bracket_display_math_is_not_eaten_as_an_escape() {
+        let out = texts("Evaluate the definite integral\n\\[\n\\int_{0}^{1} \\ln(1+x)\\,dx.\n\\]\nnext");
+        assert!(out.iter().any(|l| l == "    ∫₀¹ ln(1+x) dx."), "{out:?}");
+        assert!(!out.iter().any(|l| l.trim() == "["), "{out:?}");
+    }
+
+    #[test]
+    fn dollar_display_math_gets_its_own_styled_lines() {
+        let lines = MarkdownParser::new().parse("$$\\boxed{\\displaystyle \\int_{0}^{1} \\ln(1+x)\\,dx = 2\\ln 2 - 1 \\approx 0.386294}$$");
+        let m = lines.iter().find(|l| l.spans.iter().any(|s| s.text.contains('≈'))).expect("math line");
+        assert_eq!(m.spans[0].style.color, colors::MATH);
+        assert_eq!(m.spans[0].text, "    [∫₀¹ ln(1+x) dx = 2ln 2 − 1 ≈ 0.386294]");
+    }
+
+    #[test]
+    fn inline_math_in_both_delimiters() {
+        let out = texts("area under \\(y=\\ln(1+x)\\) is $2\\ln 2 - 1$.");
+        assert_eq!(out, vec!["area under y=ln(1+x) is 2ln 2 − 1."]);
+    }
+
+    #[test]
+    fn aligned_display_block_one_line_per_row() {
+        let md = "\\[\n\\begin{aligned}\nF(1) &= 2\\ln 2 - 1, \\\\\nF(0) &= 0.\n\\end{aligned}\n\\]";
+        let out = texts(md);
+        assert!(out.contains(&"    F(1) = 2ln 2 − 1,".to_string()), "{out:?}");
+        assert!(out.contains(&"    F(0) = 0.".to_string()), "{out:?}");
+    }
+
+    #[test]
+    fn math_delimiters_inside_code_are_left_alone() {
+        let out = texts("```\n\\[x\\]\n```\nuse `\\(a\\)` here");
+        assert!(out.iter().any(|l| l.contains("\\[x\\]")), "{out:?}");
+        assert!(out.iter().any(|l| l.contains("\\(a\\)")), "{out:?}");
+    }
+
+    #[test]
+    fn currency_is_not_math() {
+        let out = texts("costs $5 and $10 today");
+        assert_eq!(out, vec!["costs $5 and $10 today"]);
     }
 }

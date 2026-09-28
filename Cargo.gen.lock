@@ -1,12 +1,37 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "d9f9652877c1e94deabd054f65191753eae9252a388e1e768759e5e378e1c183",
+  "cargo_lock_sha256": "2ae9789aa54b351901a3aa57d52d3f0204c2c8f641fa2f70cd187ec083c980f4",
   "manifest_sha256": {
-    "Cargo.toml": "5fe4fe1c75e79f865098fe1b53d5efd9d9b8a7271795be9bf660169156dac67b"
+    "Cargo.toml": "bd6dc892dfe99a15a38c256f34b922ec9442e23361c45d8c4f1d2ae2ddb5c065"
   },
   "target_resolves": {
     "base": {
+      "aho-corasick-1.1.5": {
+        "runtime_dependencies": [
+          {
+            "name": "memchr",
+            "package_key": "memchr-2.8.3",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": true,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "default",
+          "perf-literal",
+          "std"
+        ]
+      },
       "bitflags-2.13.2": {
+        "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": []
+      },
+      "cfg-if-1.0.5": {
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
@@ -165,6 +190,16 @@
             "optional": false,
             "target": null,
             "tree": "target"
+          },
+          {
+            "name": "unicodeit",
+            "package_key": "unicodeit-0.2.1",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
           }
         ],
         "build_dependencies": [],
@@ -287,6 +322,150 @@
         "features": [
           "default",
           "proc-macro"
+        ]
+      },
+      "regex-1.13.1": {
+        "runtime_dependencies": [
+          {
+            "name": "aho_corasick",
+            "package_key": "aho-corasick-1.1.5",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": true,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "memchr",
+            "package_key": "memchr-2.8.3",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": true,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "regex_automata",
+            "package_key": "regex-automata-0.4.18",
+            "kind": "normal",
+            "features": [
+              "alloc",
+              "meta",
+              "nfa-pikevm",
+              "syntax"
+            ],
+            "uses_default_features": false,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "regex_syntax",
+            "package_key": "regex-syntax-0.8.11",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "default",
+          "perf",
+          "perf-backtrack",
+          "perf-cache",
+          "perf-dfa",
+          "perf-inline",
+          "perf-literal",
+          "perf-onepass",
+          "std",
+          "unicode",
+          "unicode-age",
+          "unicode-bool",
+          "unicode-case",
+          "unicode-gencat",
+          "unicode-perl",
+          "unicode-script",
+          "unicode-segment"
+        ]
+      },
+      "regex-automata-0.4.18": {
+        "runtime_dependencies": [
+          {
+            "name": "aho_corasick",
+            "package_key": "aho-corasick-1.1.5",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": true,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "memchr",
+            "package_key": "memchr-2.8.3",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": true,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "regex_syntax",
+            "package_key": "regex-syntax-0.8.11",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": true,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "alloc",
+          "dfa-onepass",
+          "hybrid",
+          "meta",
+          "nfa-backtrack",
+          "nfa-pikevm",
+          "nfa-thompson",
+          "perf-inline",
+          "perf-literal",
+          "perf-literal-multisubstring",
+          "perf-literal-substring",
+          "std",
+          "syntax",
+          "unicode",
+          "unicode-age",
+          "unicode-bool",
+          "unicode-case",
+          "unicode-gencat",
+          "unicode-perl",
+          "unicode-script",
+          "unicode-segment",
+          "unicode-word-boundary"
+        ]
+      },
+      "regex-syntax-0.8.11": {
+        "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": [
+          "default",
+          "std",
+          "unicode",
+          "unicode-age",
+          "unicode-bool",
+          "unicode-case",
+          "unicode-gencat",
+          "unicode-perl",
+          "unicode-script",
+          "unicode-segment"
         ]
       },
       "serde-1.0.229": {
@@ -691,6 +870,52 @@
           "default"
         ]
       },
+      "unicodeit-0.2.1": {
+        "runtime_dependencies": [
+          {
+            "name": "aho_corasick",
+            "package_key": "aho-corasick-1.1.5",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "cfg_if",
+            "package_key": "cfg-if-1.0.5",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "memchr",
+            "package_key": "memchr-2.8.3",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "regex",
+            "package_key": "regex-1.13.1",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
       "zmij-1.0.23": {
         "runtime_dependencies": [],
         "build_dependencies": [],
@@ -719,8 +944,14 @@
     }
   },
   "per_crate": {
+    "aho-corasick-1.1.5": {
+      "edition": "2021"
+    },
     "bitflags-2.13.2": {
       "edition": "2021"
+    },
+    "cfg-if-1.0.5": {
+      "edition": "2018"
     },
     "getopts-0.2.24": {
       "edition": "2021"
@@ -771,6 +1002,15 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
+    "regex-1.13.1": {
+      "edition": "2021"
+    },
+    "regex-automata-0.4.18": {
+      "edition": "2021"
+    },
+    "regex-syntax-0.8.11": {
+      "edition": "2021"
+    },
     "serde-1.0.229": {
       "edition": "2021",
       "build_script": "build.rs"
@@ -819,6 +1059,9 @@
     },
     "unicode-width-0.2.2": {
       "edition": "2021"
+    },
+    "unicodeit-0.2.1": {
+      "edition": "2024"
     },
     "zmij-1.0.23": {
       "edition": "2021",
