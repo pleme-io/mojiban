@@ -44,9 +44,65 @@ impl MarkdownParser {
         // rather than emitted as a single span a renderer draws as one row.
         let mut code_lang: Option<String> = None;
         let highlighter = SyntaxHighlighter::new();
+        // Inside a GFM table: its rows, laid out when the table ends. Cell
+        // text is collected per cell instead of into `current_line`, which
+        // is what flattened a whole table into one run-on line before.
+        let mut table: Option<TableBuf> = None;
 
         for event in parser {
+            if let Some(t) = table.as_mut() {
+                match &event {
+                    Event::Start(Tag::TableHead) => t.in_head = true,
+                    Event::End(TagEnd::TableHead) => {
+                        t.finish_row();
+                        t.in_head = false;
+                    }
+                    Event::End(TagEnd::TableRow) => t.finish_row(),
+                    Event::End(TagEnd::TableCell) => t.finish_cell(),
+                    Event::Text(text) | Event::Code(text) => {
+                        let mut style = style_stack.last().copied().unwrap_or_default();
+                        if matches!(event, Event::Code(_)) {
+                            style.color = colors::CODE;
+                        }
+                        if t.in_head {
+                            style.weight = TextWeight::Bold;
+                        }
+                        t.cell.push(StyledSpan::new(text.to_string(), style));
+                    }
+                    Event::End(TagEnd::Table) => {
+                        if let Some(done) = table.take() {
+                            lines.extend(done.layout());
+                        }
+                        continue;
+                    }
+                    _ => {}
+                }
+                // Inline emphasis inside a cell still needs its style frame.
+                match &event {
+                    Event::Start(Tag::Emphasis) => {
+                        let mut s = style_stack.last().copied().unwrap_or_default();
+                        s.italic = true;
+                        style_stack.push(s);
+                    }
+                    Event::Start(Tag::Strong) => {
+                        let mut s = style_stack.last().copied().unwrap_or_default();
+                        s.weight = TextWeight::Bold;
+                        style_stack.push(s);
+                    }
+                    Event::End(TagEnd::Emphasis | TagEnd::Strong) => {
+                        style_stack.pop();
+                    }
+                    _ => {}
+                }
+                continue;
+            }
             match event {
+                Event::Start(Tag::Table(_)) => {
+                    if !current_line.spans.is_empty() {
+                        lines.push(std::mem::take(&mut current_line));
+                    }
+                    table = Some(TableBuf::default());
+                }
                 Event::Start(tag) => {
                     let mut style = style_stack.last().copied().unwrap_or_default();
                     match &tag {
@@ -157,6 +213,68 @@ impl Default for MarkdownParser {
 impl crate::TextProcessor for MarkdownParser {
     fn process(&self, input: &str) -> Vec<RichLine> {
         self.parse(input)
+    }
+}
+
+/// A GFM table while it is being read: rows of cells, each cell its styled
+/// spans. Laid out as aligned columns once the whole table is known.
+#[derive(Debug, Default)]
+struct TableBuf {
+    in_head: bool,
+    /// (is the header row, its cells)
+    rows: Vec<(bool, Vec<Vec<StyledSpan>>)>,
+    row: Vec<Vec<StyledSpan>>,
+    cell: Vec<StyledSpan>,
+}
+
+impl TableBuf {
+    fn finish_cell(&mut self) {
+        self.row.push(std::mem::take(&mut self.cell));
+    }
+
+    fn finish_row(&mut self) {
+        if !self.row.is_empty() {
+            self.rows.push((self.in_head, std::mem::take(&mut self.row)));
+        }
+    }
+
+    fn width(cell: &[StyledSpan]) -> usize {
+        cell.iter().map(|s| unicode_width::UnicodeWidthStr::width(s.text.as_str())).sum()
+    }
+
+    /// One line per row, columns padded to their widest cell and joined by
+    /// ` │ `, with a `─┼─` rule under the header.
+    fn layout(self) -> Vec<RichLine> {
+        let cols = self.rows.iter().map(|(_, r)| r.len()).max().unwrap_or(0);
+        let widths: Vec<usize> = (0..cols)
+            .map(|c| self.rows.iter().map(|(_, r)| r.get(c).map_or(0, |cell| Self::width(cell))).max().unwrap_or(0))
+            .collect();
+        let rule_style = TextStyle { color: colors::QUOTE, ..TextStyle::default() };
+        let mut out = Vec::new();
+        for (is_head, row) in self.rows {
+            let mut line = RichLine::new();
+            for (c, w) in widths.iter().enumerate() {
+                if c > 0 {
+                    line.push(StyledSpan::new(" \u{2502} ", rule_style));
+                }
+                let cell = row.get(c).cloned().unwrap_or_default();
+                let pad = w.saturating_sub(Self::width(&cell));
+                for span in cell {
+                    line.push(span);
+                }
+                if pad > 0 && c + 1 < widths.len() {
+                    line.push(StyledSpan::new(" ".repeat(pad), TextStyle::default()));
+                }
+            }
+            out.push(line);
+            if is_head {
+                let rule: Vec<String> = widths.iter().map(|w| "\u{2500}".repeat(*w)).collect();
+                let mut r = RichLine::new();
+                r.push(StyledSpan::new(rule.join("\u{2500}\u{253c}\u{2500}"), rule_style));
+                out.push(r);
+            }
+        }
+        out
     }
 }
 
@@ -879,5 +997,47 @@ mod tests {
     fn indented_code_block_is_split_too() {
         let texts: Vec<String> = parser().parse("    a\n    b\n").iter().map(RichLine::plain_text).collect();
         assert_eq!(texts, ["a", "b"]);
+    }
+
+    // ---- tables ----
+
+    const TABLE: &str = "Intro.\n\n| Item | Details |\n|---|---|\n| Hardware | 32 GB |\n| OS | macOS |\n\nAfter.";
+
+    #[test]
+    fn a_table_is_one_line_per_row_with_aligned_columns() {
+        let texts: Vec<String> = parser().parse(TABLE).iter().map(RichLine::plain_text).collect();
+        assert_eq!(
+            texts,
+            [
+                "Intro.",
+                "Item     \u{2502} Details",
+                // 8 + 1 dashes, the cross under the `│`, then 1 + 7.
+                "\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{253c}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
+                "Hardware \u{2502} 32 GB",
+                "OS       \u{2502} macOS",
+                "After."
+            ]
+        );
+    }
+
+    #[test]
+    fn a_table_header_is_bold_and_its_body_is_not() {
+        let lines = parser().parse(TABLE);
+        assert_eq!(lines[1].spans[0].style.weight, TextWeight::Bold);
+        assert_ne!(lines[3].spans[0].style.weight, TextWeight::Bold);
+    }
+
+    #[test]
+    fn emphasis_inside_a_cell_keeps_its_style() {
+        let lines = parser().parse("| a |\n|---|\n| **b** |\n");
+        let b = lines.iter().flat_map(|l| l.spans.iter()).find(|s| s.text == "b").unwrap();
+        assert_eq!(b.style.weight, TextWeight::Bold);
+    }
+
+    #[test]
+    fn wide_characters_align_by_display_width() {
+        let texts: Vec<String> = parser().parse("| k | v |\n|---|---|\n| 日本 | x |\n| a | y |\n").iter().map(RichLine::plain_text).collect();
+        // 日本 is 4 columns wide, so `a` is padded by 3 to match it.
+        assert_eq!(texts[3], "a    \u{2502} y");
     }
 }
