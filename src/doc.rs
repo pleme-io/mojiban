@@ -13,7 +13,7 @@ use pulldown_cmark::{Alignment, CodeBlockKind, Event, Options, Parser, Tag, TagE
 use serde::{Deserialize, Serialize};
 
 use crate::colors;
-use crate::span::{RichLine, StyledSpan, TextStyle, TextWeight};
+use crate::span::{InlineKind, RichLine, StyledSpan, TextStyle, TextWeight};
 
 /// A parsed markdown document: its top-level blocks in order.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -268,8 +268,9 @@ impl Builder {
             Tag::Strikethrough => self.push_style(|s| s.strikethrough = true),
             Tag::Link { .. } => self.push_style(|s| {
                 s.underline = true;
-                if s.color == TextStyle::default().color {
+                if s.kind.is_plain() {
                     s.color = colors::CODE;
+                    s.kind = InlineKind::Link;
                 }
             }),
             _ => {}
@@ -380,11 +381,15 @@ impl Builder {
             Event::Code(code) => {
                 let mut st = self.style();
                 st.color = colors::CODE;
+                if st.kind != InlineKind::Link {
+                    st.kind = InlineKind::Code;
+                }
                 self.span(StyledSpan::new(code.to_string(), st));
             }
             Event::InlineMath(tex) => {
                 let mut st = self.style();
                 st.color = colors::MATH;
+                st.kind = InlineKind::Math;
                 self.span(StyledSpan::new(
                     crate::math::tex_to_unicode(&tex).join(" "),
                     st,
@@ -400,6 +405,7 @@ impl Builder {
                         .join(" ");
                     let st = TextStyle {
                         color: colors::MATH,
+                        kind: InlineKind::Math,
                         ..self.style()
                     };
                     self.span(StyledSpan::new(text, st));

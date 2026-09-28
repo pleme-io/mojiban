@@ -2,7 +2,7 @@ use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 
 use crate::colors;
 use crate::highlight::SyntaxHighlighter;
-use crate::span::{RichLine, StyledSpan, TextStyle, TextWeight};
+use crate::span::{InlineKind, RichLine, StyledSpan, TextStyle, TextWeight};
 
 /// Stateless markdown-to-styled-spans processor.
 ///
@@ -34,205 +34,230 @@ impl MarkdownParser {
     pub fn parse(&self, markdown: &str) -> Vec<RichLine> {
         let options = Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TABLES | Options::ENABLE_MATH;
         let markdown = normalize_math_delimiters(markdown);
-        let parser = Parser::new_ext(&markdown, options);
-
-        let mut lines: Vec<RichLine> = Vec::new();
-        let mut current_line = RichLine::new();
-        let mut style_stack: Vec<TextStyle> = vec![TextStyle::default()];
-        let mut list_stack: Vec<ListKind> = Vec::new();
-        let mut need_list_prefix = false;
-        // Inside a fenced/indented code block: its language (possibly "").
-        // Code text arrives as ONE event carrying embedded newlines; it is
-        // split into one RichLine per source line and each line highlighted,
-        // rather than emitted as a single span a renderer draws as one row.
-        let mut code_lang: Option<String> = None;
-        let highlighter = SyntaxHighlighter::new();
-        // Inside a GFM table: its rows, laid out when the table ends. Cell
-        // text is collected per cell instead of into `current_line`, which
-        // is what flattened a whole table into one run-on line before.
-        let mut table: Option<TableBuf> = None;
-
-        for event in parser {
-            if let Some(t) = table.as_mut() {
-                match &event {
-                    Event::Start(Tag::TableHead) => t.in_head = true,
-                    Event::End(TagEnd::TableHead) => {
-                        t.finish_row();
-                        t.in_head = false;
-                    }
-                    Event::End(TagEnd::TableRow) => t.finish_row(),
-                    Event::End(TagEnd::TableCell) => t.finish_cell(),
-                    Event::Text(text) | Event::Code(text) => {
-                        let mut style = style_stack.last().copied().unwrap_or_default();
-                        if matches!(event, Event::Code(_)) {
-                            style.color = colors::CODE;
-                        }
-                        if t.in_head {
-                            style.weight = TextWeight::Bold;
-                        }
-                        t.cell.push(StyledSpan::new(text.to_string(), style));
-                    }
-                    Event::End(TagEnd::Table) => {
-                        if let Some(done) = table.take() {
-                            lines.extend(done.layout());
-                        }
-                        continue;
-                    }
-                    _ => {}
-                }
-                // Inline emphasis inside a cell still needs its style frame.
-                match &event {
-                    Event::Start(Tag::Emphasis) => {
-                        let mut s = style_stack.last().copied().unwrap_or_default();
-                        s.italic = true;
-                        style_stack.push(s);
-                    }
-                    Event::Start(Tag::Strong) => {
-                        let mut s = style_stack.last().copied().unwrap_or_default();
-                        s.weight = TextWeight::Bold;
-                        style_stack.push(s);
-                    }
-                    Event::End(TagEnd::Emphasis | TagEnd::Strong) => {
-                        style_stack.pop();
-                    }
-                    _ => {}
-                }
-                continue;
+        let mut b = LineBuilder::new();
+        for event in Parser::new_ext(&markdown, options) {
+            if b.table.is_some() {
+                b.table_event(&event);
+            } else {
+                b.event(event);
             }
-            match event {
-                Event::Start(Tag::Table(_)) => {
-                    if !current_line.spans.is_empty() {
-                        lines.push(std::mem::take(&mut current_line));
-                    }
-                    table = Some(TableBuf::default());
-                }
-                Event::Start(tag) => {
-                    let mut style = style_stack.last().copied().unwrap_or_default();
-                    match &tag {
-                        Tag::Emphasis => style.italic = true,
-                        Tag::Strikethrough => style.strikethrough = true,
-                        Tag::Strong | Tag::Heading { .. } => style.weight = TextWeight::Bold,
-                        Tag::BlockQuote(_) => style.color = colors::QUOTE,
-                        Tag::List(start) => {
-                            let kind = if let Some(n) = start {
-                                ListKind::Ordered(*n)
-                            } else {
-                                ListKind::Unordered
-                            };
-                            list_stack.push(kind);
-                        }
-                        Tag::Item => {
-                            need_list_prefix = true;
-                        }
-                        Tag::CodeBlock(kind) => {
-                            if !current_line.spans.is_empty() {
-                                lines.push(std::mem::take(&mut current_line));
-                            }
-                            code_lang = Some(match kind {
-                                pulldown_cmark::CodeBlockKind::Fenced(info) => {
-                                    info.split_whitespace().next().unwrap_or("").to_owned()
-                                }
-                                pulldown_cmark::CodeBlockKind::Indented => String::new(),
-                            });
-                        }
-                        _ => {}
-                    }
-                    style_stack.push(style);
-                }
-                Event::End(tag_end) => {
-                    style_stack.pop();
-                    match tag_end {
-                        TagEnd::Paragraph | TagEnd::Heading(_) | TagEnd::BlockQuote(_) => {
-                            lines.push(std::mem::take(&mut current_line));
-                        }
-                        TagEnd::Item => {
-                            lines.push(std::mem::take(&mut current_line));
-                            // Increment ordered list counter for next item
-                            if let Some(ListKind::Ordered(start)) = list_stack.last_mut() {
-                                *start += 1;
-                            }
-                        }
-                        TagEnd::List(_) => {
-                            list_stack.pop();
-                        }
-                        TagEnd::CodeBlock => {
-                            code_lang = None;
-                        }
-                        _ => {}
-                    }
-                }
-                Event::Text(text) if code_lang.is_some() => {
-                    let lang = code_lang.as_deref().unwrap_or("");
-                    for line in text.lines() {
-                        lines.push(highlighter.highlight_line(line, lang));
-                    }
-                }
-                Event::Text(text) => {
-                    let style = style_stack.last().copied().unwrap_or_default();
-                    if need_list_prefix {
-                        if let Some(prefix) = list_prefix(&list_stack) {
-                            current_line.push(StyledSpan::new(prefix, style));
-                        }
-                        need_list_prefix = false;
-                    }
-                    current_line.push(StyledSpan::new(text.to_string(), style));
-                }
-                Event::Code(code) => {
-                    let mut style = style_stack.last().copied().unwrap_or_default();
+        }
+        b.finish()
+    }
+}
+
+/// The running state of one [`MarkdownParser::parse`] pass.
+struct LineBuilder {
+    lines: Vec<RichLine>,
+    current_line: RichLine,
+    style_stack: Vec<TextStyle>,
+    list_stack: Vec<ListKind>,
+    need_list_prefix: bool,
+    // Inside a fenced/indented code block: its language (possibly "").
+    // Code text arrives as ONE event carrying embedded newlines; it is
+    // split into one RichLine per source line and each line highlighted,
+    // rather than emitted as a single span a renderer draws as one row.
+    code_lang: Option<String>,
+    highlighter: SyntaxHighlighter,
+    // Inside a GFM table: its rows, laid out when the table ends. Cell
+    // text is collected per cell instead of into `current_line`, which
+    // is what flattened a whole table into one run-on line before.
+    table: Option<TableBuf>,
+}
+
+impl LineBuilder {
+    fn new() -> Self {
+        Self {
+            lines: Vec::new(),
+            current_line: RichLine::new(),
+            style_stack: vec![TextStyle::default()],
+            list_stack: Vec::new(),
+            need_list_prefix: false,
+            code_lang: None,
+            highlighter: SyntaxHighlighter::new(),
+            table: None,
+        }
+    }
+
+    fn style(&self) -> TextStyle {
+        self.style_stack.last().copied().unwrap_or_default()
+    }
+
+    fn flush_line(&mut self) {
+        if !self.current_line.spans.is_empty() {
+            self.lines.push(std::mem::take(&mut self.current_line));
+        }
+    }
+
+    fn finish(mut self) -> Vec<RichLine> {
+        if !self.current_line.is_empty() {
+            self.lines.push(self.current_line);
+        }
+        self.lines
+    }
+
+    fn table_event(&mut self, event: &Event<'_>) {
+        let base = self.style();
+        let Some(t) = self.table.as_mut() else { return };
+        match event {
+            Event::Start(Tag::TableHead) => t.in_head = true,
+            Event::End(TagEnd::TableHead) => {
+                t.finish_row();
+                t.in_head = false;
+            }
+            Event::End(TagEnd::TableRow) => t.finish_row(),
+            Event::End(TagEnd::TableCell) => t.finish_cell(),
+            Event::Text(text) | Event::Code(text) => {
+                let mut style = base;
+                if matches!(event, Event::Code(_)) {
                     style.color = colors::CODE;
-                    if need_list_prefix {
-                        if let Some(prefix) = list_prefix(&list_stack) {
-                            let base_style = style_stack.last().copied().unwrap_or_default();
-                            current_line.push(StyledSpan::new(prefix, base_style));
-                        }
-                        need_list_prefix = false;
-                    }
-                    current_line.push(StyledSpan::new(code.to_string(), style));
+                    style.kind = InlineKind::Code;
                 }
-                Event::InlineMath(tex) => {
-                    let mut style = style_stack.last().copied().unwrap_or_default();
-                    style.color = colors::MATH;
-                    if need_list_prefix {
-                        if let Some(prefix) = list_prefix(&list_stack) {
-                            current_line.push(StyledSpan::new(
-                                prefix,
-                                style_stack.last().copied().unwrap_or_default(),
-                            ));
-                        }
-                        need_list_prefix = false;
-                    }
-                    current_line.push(StyledSpan::new(
-                        crate::math::tex_to_unicode(&tex).join(" "),
-                        style,
-                    ));
+                if t.in_head {
+                    style.weight = TextWeight::Bold;
                 }
-                Event::DisplayMath(tex) => {
-                    if !current_line.spans.is_empty() {
-                        lines.push(std::mem::take(&mut current_line));
-                    }
-                    let style = TextStyle {
-                        color: colors::MATH,
-                        ..TextStyle::default()
-                    };
-                    for l in crate::math::tex_to_unicode(&tex) {
-                        let mut line = RichLine::new();
-                        line.push(StyledSpan::new(format!("{DISPLAY_MATH_INDENT}{l}"), style));
-                        lines.push(line);
-                    }
-                }
-                Event::SoftBreak | Event::HardBreak => {
-                    lines.push(std::mem::take(&mut current_line));
-                }
-                _ => {}
+                t.cell.push(StyledSpan::new(text.to_string(), style));
             }
+            Event::End(TagEnd::Table) => {
+                if let Some(done) = self.table.take() {
+                    self.lines.extend(done.layout());
+                }
+                return;
+            }
+            _ => {}
         }
-
-        // Flush any remaining content
-        if !current_line.is_empty() {
-            lines.push(current_line);
+        // Inline emphasis inside a cell still needs its style frame.
+        match event {
+            Event::Start(Tag::Emphasis) => self.style_stack.push(TextStyle {
+                italic: true,
+                ..base
+            }),
+            Event::Start(Tag::Strong) => {
+                self.style_stack.push(TextStyle {
+                    weight: TextWeight::Bold,
+                    ..base
+                });
+            }
+            Event::End(TagEnd::Emphasis | TagEnd::Strong) => {
+                self.style_stack.pop();
+            }
+            _ => {}
         }
+    }
 
-        lines
+    fn event(&mut self, event: Event<'_>) {
+        match event {
+            Event::Start(Tag::Table(_)) => {
+                self.flush_line();
+                self.table = Some(TableBuf::default());
+            }
+            Event::Start(tag) => self.start(&tag),
+            Event::End(tag_end) => self.end(tag_end),
+            Event::Text(text) if self.code_lang.is_some() => {
+                let lang = self.code_lang.as_deref().unwrap_or("");
+                for line in text.lines() {
+                    self.lines.push(self.highlighter.highlight_line(line, lang));
+                }
+            }
+            Event::Text(text) => {
+                let style = self.style();
+                self.inline(text.to_string(), style);
+            }
+            Event::Code(code) => {
+                let style = TextStyle {
+                    color: colors::CODE,
+                    kind: InlineKind::Code,
+                    ..self.style()
+                };
+                self.inline(code.to_string(), style);
+            }
+            Event::InlineMath(tex) => {
+                let style = TextStyle {
+                    color: colors::MATH,
+                    kind: InlineKind::Math,
+                    ..self.style()
+                };
+                self.inline(crate::math::tex_to_unicode(&tex).join(" "), style);
+            }
+            Event::DisplayMath(tex) => self.display_math(&tex),
+            Event::SoftBreak | Event::HardBreak => {
+                self.lines.push(std::mem::take(&mut self.current_line));
+            }
+            _ => {}
+        }
+    }
+
+    fn start(&mut self, tag: &Tag<'_>) {
+        let mut style = self.style();
+        match tag {
+            Tag::Emphasis => style.italic = true,
+            Tag::Strikethrough => style.strikethrough = true,
+            Tag::Strong | Tag::Heading { .. } => style.weight = TextWeight::Bold,
+            Tag::BlockQuote(_) => style.color = colors::QUOTE,
+            Tag::List(start) => {
+                self.list_stack
+                    .push(start.map_or(ListKind::Unordered, ListKind::Ordered));
+            }
+            Tag::Item => self.need_list_prefix = true,
+            Tag::CodeBlock(kind) => {
+                self.flush_line();
+                self.code_lang = Some(match kind {
+                    pulldown_cmark::CodeBlockKind::Fenced(info) => {
+                        info.split_whitespace().next().unwrap_or("").to_owned()
+                    }
+                    pulldown_cmark::CodeBlockKind::Indented => String::new(),
+                });
+            }
+            _ => {}
+        }
+        self.style_stack.push(style);
+    }
+
+    fn end(&mut self, tag_end: TagEnd) {
+        self.style_stack.pop();
+        match tag_end {
+            TagEnd::Paragraph | TagEnd::Heading(_) | TagEnd::BlockQuote(_) => {
+                self.lines.push(std::mem::take(&mut self.current_line));
+            }
+            TagEnd::Item => {
+                self.lines.push(std::mem::take(&mut self.current_line));
+                // Increment ordered list counter for next item
+                if let Some(ListKind::Ordered(start)) = self.list_stack.last_mut() {
+                    *start += 1;
+                }
+            }
+            TagEnd::List(_) => {
+                self.list_stack.pop();
+            }
+            TagEnd::CodeBlock => self.code_lang = None,
+            _ => {}
+        }
+    }
+
+    /// Push an inline run, preceded by a pending list marker in the base style.
+    fn inline(&mut self, text: String, style: TextStyle) {
+        if self.need_list_prefix {
+            if let Some(prefix) = list_prefix(&self.list_stack) {
+                let base = self.style();
+                self.current_line.push(StyledSpan::new(prefix, base));
+            }
+            self.need_list_prefix = false;
+        }
+        self.current_line.push(StyledSpan::new(text, style));
+    }
+
+    fn display_math(&mut self, tex: &str) {
+        self.flush_line();
+        let style = TextStyle {
+            color: colors::MATH,
+            kind: InlineKind::Math,
+            ..TextStyle::default()
+        };
+        for l in crate::math::tex_to_unicode(tex) {
+            let mut line = RichLine::new();
+            line.push(StyledSpan::new(format!("{DISPLAY_MATH_INDENT}{l}"), style));
+            self.lines.push(line);
+        }
     }
 }
 

@@ -59,6 +59,33 @@ pub struct TextStyle {
     pub underline: bool,
     /// Whether the text has a strikethrough line.
     pub strikethrough: bool,
+    /// What the run is, when it is more than prose. Set where the run is
+    /// created, so layout reads it instead of inferring it from the colour.
+    #[serde(skip_serializing_if = "InlineKind::is_plain")]
+    pub kind: InlineKind,
+}
+
+/// The inline construct a run came from.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum InlineKind {
+    /// Prose with no colour of its own.
+    #[default]
+    Plain,
+    /// `inline code`.
+    Code,
+    /// A link's text.
+    Link,
+    /// Inline or display math.
+    Math,
+}
+
+impl InlineKind {
+    /// Prose with no colour of its own.
+    #[must_use]
+    pub fn is_plain(&self) -> bool {
+        *self == Self::Plain
+    }
 }
 
 impl Default for TextStyle {
@@ -69,6 +96,7 @@ impl Default for TextStyle {
             italic: false,
             underline: false,
             strikethrough: false,
+            kind: InlineKind::Plain,
         }
     }
 }

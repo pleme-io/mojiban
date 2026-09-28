@@ -20,7 +20,7 @@ use egaku::{Span, TextView, Wrap};
 use crate::colors;
 use crate::doc::{Align, Block, Document, Flow, Item, MathRows};
 use crate::highlight::SyntaxHighlighter;
-use crate::span::{RichLine, TextStyle, TextWeight};
+use crate::span::{InlineKind, RichLine, TextStyle, TextWeight};
 
 /// What a styled run IS, for a host that styles by meaning.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -329,12 +329,12 @@ impl Layouter<'_> {
     /// An inline run from the document: its role read off its colour, the
     /// block's tint applied where the run has no colour of its own.
     fn inline(&mut self, text: &str, st: TextStyle, tint: Option<(Role, TextStyle)>) -> Span {
-        let plain = st.color == TextStyle::default().color;
-        let (role, mut out) = if st.color == colors::MATH {
+        let plain = st.kind.is_plain();
+        let (role, mut out) = if st.kind == InlineKind::Math {
             (Role::Math, st)
-        } else if st.underline && st.color == colors::CODE {
+        } else if st.kind == InlineKind::Link && st.underline {
             (Role::Link, st)
-        } else if st.color == colors::CODE {
+        } else if matches!(st.kind, InlineKind::Code | InlineKind::Link) {
             (Role::InlineCode, st)
         } else if let (true, Some((role, base))) = (plain, tint) {
             (
@@ -738,52 +738,8 @@ impl Layouter<'_> {
         }
         let sep = " │ ";
         let sep_w = width_of(sep);
-        let natural: Vec<usize> = (0..cols)
-            .map(|c| {
-                std::iter::once(head)
-                    .chain(rows.iter().map(Vec::as_slice))
-                    .filter_map(|r| r.get(c))
-                    .map(RichLine::total_width)
-                    .max()
-                    .unwrap_or(0)
-                    .max(1)
-            })
-            .collect();
         let avail = width.saturating_sub(sep_w * (cols - 1)).max(cols);
-        // A column first gives up the room its longest word does not need,
-        // widest first; only then do words themselves break.
-        let longest_word: Vec<usize> = (0..cols)
-            .map(|c| {
-                std::iter::once(head)
-                    .chain(rows.iter().map(Vec::as_slice))
-                    .filter_map(|r| r.get(c))
-                    .flat_map(|cell| {
-                        cell.plain_text()
-                            .split_whitespace()
-                            .map(width_of)
-                            .collect::<Vec<_>>()
-                    })
-                    .max()
-                    .unwrap_or(1)
-            })
-            .collect();
-        let mut w = natural;
-        while w.iter().sum::<usize>() > avail {
-            let slack = w
-                .iter()
-                .enumerate()
-                .filter(|(i, x)| **x > longest_word[*i])
-                .max_by_key(|(_, x)| **x);
-            let Some((i, _)) = slack.or_else(|| {
-                w.iter()
-                    .enumerate()
-                    .filter(|(_, x)| **x > 3)
-                    .max_by_key(|(_, x)| **x)
-            }) else {
-                break;
-            };
-            w[i] -= 1;
-        }
+        let w = column_widths(head, rows, cols, avail);
         let tint = self.tint(ctx);
         let rule_st = self.theme.styles.muted;
         let sep_span = self.span(sep, Role::TableRule, rule_st);
@@ -800,7 +756,7 @@ impl Layouter<'_> {
                                         weight: TextWeight::Bold,
                                         ..s.style
                                     };
-                                    let st = if st.color == TextStyle::default().color {
+                                    let st = if st.kind.is_plain() {
                                         TextStyle {
                                             color: this.theme.styles.text.color,
                                             ..st
@@ -849,4 +805,61 @@ impl Layouter<'_> {
         }
         out
     }
+}
+
+/// Column widths for a table: natural widths, then the widest column gives
+/// up the room its longest word does not need until the table fits `avail`;
+/// only then do words themselves break.
+fn column_widths(
+    head: &[RichLine],
+    rows: &[Vec<RichLine>],
+    cols: usize,
+    avail: usize,
+) -> Vec<usize> {
+    let natural: Vec<usize> = (0..cols)
+        .map(|c| {
+            std::iter::once(head)
+                .chain(rows.iter().map(Vec::as_slice))
+                .filter_map(|r| r.get(c))
+                .map(RichLine::total_width)
+                .max()
+                .unwrap_or(0)
+                .max(1)
+        })
+        .collect();
+    // A column first gives up the room its longest word does not need,
+    // widest first; only then do words themselves break.
+    let longest_word: Vec<usize> = (0..cols)
+        .map(|c| {
+            std::iter::once(head)
+                .chain(rows.iter().map(Vec::as_slice))
+                .filter_map(|r| r.get(c))
+                .flat_map(|cell| {
+                    cell.plain_text()
+                        .split_whitespace()
+                        .map(width_of)
+                        .collect::<Vec<_>>()
+                })
+                .max()
+                .unwrap_or(1)
+        })
+        .collect();
+    let mut w = natural;
+    while w.iter().sum::<usize>() > avail {
+        let slack = w
+            .iter()
+            .enumerate()
+            .filter(|(i, x)| **x > longest_word[*i])
+            .max_by_key(|(_, x)| **x);
+        let Some((i, _)) = slack.or_else(|| {
+            w.iter()
+                .enumerate()
+                .filter(|(_, x)| **x > 3)
+                .max_by_key(|(_, x)| **x)
+        }) else {
+            break;
+        };
+        w[i] -= 1;
+    }
+    w
 }

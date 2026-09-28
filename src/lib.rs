@@ -25,7 +25,7 @@ pub use highlight::SyntaxHighlighter;
 pub use layout::{CellStyle, Rendered, Role, Theme, layout, render_markdown};
 pub use markdown::MarkdownParser;
 pub use math::{tex_to_rows, tex_to_unicode};
-pub use span::{ParseTextWeightError, RichLine, StyledSpan, TextStyle, TextWeight};
+pub use span::{InlineKind, ParseTextWeightError, RichLine, StyledSpan, TextStyle, TextWeight};
 
 /// A processor that converts source text into styled lines.
 ///
