@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "e43f5de5cc553ed7850eb6a3db7bd212acd74c5983a2039a63cc7be6c515602d",
+  "cargo_lock_sha256": "e90392bc8be81ceabedf37cb3eb3d87efc8d16b716b9308d342515bd27d494f2",
   "manifest_sha256": {
-    "Cargo.toml": "f97987ba48feda65eae73d07ea58802f7c2a5904b43ed244b17d5e5b03aa1f44"
+    "Cargo.toml": "bfc7effddbc218a0677e4a4cd6f44ac86324765c656aa69fdb3b1c98ffd097d8"
   },
   "target_resolves": {
     "base": {
@@ -74,7 +74,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "egaku-0.1.20": {
+      "egaku-0.1.22": {
         "runtime_dependencies": [
           {
             "name": "awase",
@@ -283,11 +283,11 @@
           "std"
         ]
       },
-      "mojiban-0.1.6": {
+      "mojiban-0.1.7": {
         "runtime_dependencies": [
           {
             "name": "egaku",
-            "package_key": "egaku-0.1.20",
+            "package_key": "egaku-0.1.22",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -1135,7 +1135,7 @@
     "cfg-if-1.0.5": {
       "edition": "2018"
     },
-    "egaku-0.1.20": {
+    "egaku-0.1.22": {
       "edition": "2024"
     },
     "getopts-0.2.24": {
@@ -1153,7 +1153,7 @@
     "memchr-2.8.3": {
       "edition": "2021"
     },
-    "mojiban-0.1.6": {
+    "mojiban-0.1.7": {
       "edition": "2024",
       "lib_target": {
         "name": "mojiban",
