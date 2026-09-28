@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "2ae9789aa54b351901a3aa57d52d3f0204c2c8f641fa2f70cd187ec083c980f4",
+  "cargo_lock_sha256": "7f1269f5ba8f1e65d54705f07b84be5d23667c3491436b6681e55c530deb0a4d",
   "manifest_sha256": {
-    "Cargo.toml": "bd6dc892dfe99a15a38c256f34b922ec9442e23361c45d8c4f1d2ae2ddb5c065"
+    "Cargo.toml": "33f581bdfb2c3698056124b2f79c29628fceca4690ff8155138f12063494b3a2"
   },
   "target_resolves": {
     "base": {
@@ -137,7 +137,7 @@
           "std"
         ]
       },
-      "mojiban-0.1.4": {
+      "mojiban-0.1.5": {
         "runtime_dependencies": [
           {
             "name": "pulldown_cmark",
@@ -968,7 +968,7 @@
     "memchr-2.8.3": {
       "edition": "2021"
     },
-    "mojiban-0.1.4": {
+    "mojiban-0.1.5": {
       "edition": "2024",
       "lib_target": {
         "name": "mojiban",
