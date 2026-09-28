@@ -114,15 +114,18 @@ impl<'a> Tokenizer<'a> {
 
     /// Try to consume a line comment (`//` or `#`). Returns true if consumed.
     fn try_line_comment(&mut self, ch: char) -> bool {
-        let is_double_slash = ch == '/' && self.pos + 1 < self.len() && self.chars[self.pos + 1] == '/';
+        let is_double_slash =
+            ch == '/' && self.pos + 1 < self.len() && self.chars[self.pos + 1] == '/';
         let is_hash = self.hash_comments && ch == '#';
         if !is_double_slash && !is_hash {
             return false;
         }
         self.flush_plain(self.pos);
         let comment: String = self.chars[self.pos..].iter().collect();
-        self.spans
-            .push(StyledSpan::new(comment, TextStyle::colored(colors::COMMENT)));
+        self.spans.push(StyledSpan::new(
+            comment,
+            TextStyle::colored(colors::COMMENT),
+        ));
         self.pos = self.len();
         self.plain_start = self.len();
         true
@@ -217,6 +220,7 @@ fn is_word_continue(ch: char) -> bool {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
 
@@ -329,7 +333,7 @@ mod tests {
 
     #[test]
     fn default_trait() {
-        let h = SyntaxHighlighter::default();
+        let h = SyntaxHighlighter;
         let line = h.highlight_line("test", "rust");
         assert_eq!(line.plain_text(), "test");
     }
@@ -372,8 +376,14 @@ mod tests {
     fn number_not_in_identifier() {
         // "x42" should NOT extract "42" as a separate number
         let line = highlighter().highlight_line("x42", "rust");
-        let num = line.spans.iter().find(|s| s.text == "42" && s.style.color == colors::NUMBER);
-        assert!(num.is_none(), "42 inside identifier should not be a separate number span");
+        let num = line
+            .spans
+            .iter()
+            .find(|s| s.text == "42" && s.style.color == colors::NUMBER);
+        assert!(
+            num.is_none(),
+            "42 inside identifier should not be a separate number span"
+        );
     }
 
     #[test]
@@ -397,22 +407,33 @@ mod tests {
     #[test]
     fn single_quoted_string() {
         let line = highlighter().highlight_line("let c = 'a';", "rust");
-        let string_span = line.spans.iter().find(|s| s.text.contains('a') && s.style.color == colors::STRING);
-        assert!(string_span.is_some(), "single-quoted string should be highlighted");
+        let string_span = line
+            .spans
+            .iter()
+            .find(|s| s.text.contains('a') && s.style.color == colors::STRING);
+        assert!(
+            string_span.is_some(),
+            "single-quoted string should be highlighted"
+        );
     }
 
     #[test]
     fn empty_string() {
         let line = highlighter().highlight_line(r#"let s = "";"#, "rust");
         let string_span = line.spans.iter().find(|s| s.text == "\"\"");
-        assert!(string_span.is_some(), "empty string literal should be highlighted");
+        assert!(
+            string_span.is_some(),
+            "empty string literal should be highlighted"
+        );
         assert_eq!(string_span.unwrap().style.color, colors::STRING);
     }
 
     #[test]
     fn multiple_strings_on_line() {
         let line = highlighter().highlight_line(r#"let a = "hello"; let b = "world";"#, "rust");
-        let string_spans: Vec<_> = line.spans.iter()
+        let string_spans: Vec<_> = line
+            .spans
+            .iter()
             .filter(|s| s.style.color == colors::STRING)
             .collect();
         assert_eq!(string_spans.len(), 2, "should find two string spans");
@@ -437,8 +458,14 @@ mod tests {
         assert!(comment.is_some());
         assert!(comment.unwrap().text.contains("comment with code fn"));
         // "fn" after // should NOT be a keyword
-        let fn_kw = line.spans.iter().find(|s| s.text == "fn" && s.style.color == colors::KEYWORD);
-        assert!(fn_kw.is_none(), "keyword in comment should not be highlighted separately");
+        let fn_kw = line
+            .spans
+            .iter()
+            .find(|s| s.text == "fn" && s.style.color == colors::KEYWORD);
+        assert!(
+            fn_kw.is_none(),
+            "keyword in comment should not be highlighted separately"
+        );
     }
 
     #[test]
@@ -462,7 +489,10 @@ mod tests {
     fn keyword_not_prefix_of_identifier() {
         // "letting" contains "let" as prefix
         let line = highlighter().highlight_line("letting", "rust");
-        let kw = line.spans.iter().find(|s| s.text == "let" && s.style.color == colors::KEYWORD);
+        let kw = line
+            .spans
+            .iter()
+            .find(|s| s.text == "let" && s.style.color == colors::KEYWORD);
         assert!(kw.is_none(), "'let' should not be extracted from 'letting'");
     }
 
@@ -470,7 +500,10 @@ mod tests {
     fn keyword_not_suffix_of_identifier() {
         // "outlet" contains "let" as suffix
         let line = highlighter().highlight_line("outlet", "rust");
-        let kw = line.spans.iter().find(|s| s.text == "let" && s.style.color == colors::KEYWORD);
+        let kw = line
+            .spans
+            .iter()
+            .find(|s| s.text == "let" && s.style.color == colors::KEYWORD);
         assert!(kw.is_none(), "'let' should not be extracted from 'outlet'");
     }
 
@@ -504,8 +537,14 @@ mod tests {
         for &kw_str in RUST_KEYWORDS {
             let input = format!(" {kw_str} ");
             let line = highlighter().highlight_line(&input, "rust");
-            let found = line.spans.iter().find(|s| s.text == kw_str && s.style.color == colors::KEYWORD);
-            assert!(found.is_some(), "Rust keyword '{kw_str}' should be highlighted");
+            let found = line
+                .spans
+                .iter()
+                .find(|s| s.text == kw_str && s.style.color == colors::KEYWORD);
+            assert!(
+                found.is_some(),
+                "Rust keyword '{kw_str}' should be highlighted"
+            );
         }
     }
 
@@ -516,8 +555,14 @@ mod tests {
         for &kw_str in NIX_KEYWORDS {
             let input = format!(" {kw_str} ");
             let line = highlighter().highlight_line(&input, "nix");
-            let found = line.spans.iter().find(|s| s.text == kw_str && s.style.color == colors::KEYWORD);
-            assert!(found.is_some(), "Nix keyword '{kw_str}' should be highlighted");
+            let found = line
+                .spans
+                .iter()
+                .find(|s| s.text == kw_str && s.style.color == colors::KEYWORD);
+            assert!(
+                found.is_some(),
+                "Nix keyword '{kw_str}' should be highlighted"
+            );
         }
     }
 
@@ -623,10 +668,15 @@ mod tests {
     fn double_slash_in_string_not_comment() {
         let line = highlighter().highlight_line(r#"let url = "http://example.com";"#, "rust");
         // The "//" inside the string should be part of the string, not a comment
-        let comment_spans: Vec<_> = line.spans.iter()
+        let comment_spans: Vec<_> = line
+            .spans
+            .iter()
             .filter(|s| s.style.color == colors::COMMENT)
             .collect();
-        assert!(comment_spans.is_empty(), "// inside string should not create comment span");
+        assert!(
+            comment_spans.is_empty(),
+            "// inside string should not create comment span"
+        );
     }
 
     // ---- Consecutive keywords ----
@@ -634,7 +684,9 @@ mod tests {
     #[test]
     fn consecutive_keywords_separated_by_space() {
         let line = highlighter().highlight_line("pub async fn", "rust");
-        let keywords: Vec<_> = line.spans.iter()
+        let keywords: Vec<_> = line
+            .spans
+            .iter()
             .filter(|s| s.style.color == colors::KEYWORD)
             .collect();
         assert_eq!(keywords.len(), 3);
@@ -649,7 +701,10 @@ mod tests {
     fn keyword_followed_by_number_no_space() {
         // "let42" is not a keyword — it's an identifier
         let line = highlighter().highlight_line("let42", "rust");
-        let kw = line.spans.iter().find(|s| s.text == "let" && s.style.color == colors::KEYWORD);
+        let kw = line
+            .spans
+            .iter()
+            .find(|s| s.text == "let" && s.style.color == colors::KEYWORD);
         assert!(kw.is_none(), "'let' should not be extracted from 'let42'");
     }
 
@@ -657,7 +712,8 @@ mod tests {
 
     #[test]
     fn rust_struct_enum_impl() {
-        let line = highlighter().highlight_line("pub struct Foo { impl Bar for Foo {} enum Baz {}", "rust");
+        let line = highlighter()
+            .highlight_line("pub struct Foo { impl Bar for Foo {} enum Baz {}", "rust");
         for kw in &["struct", "impl", "enum"] {
             let found = line.spans.iter().find(|s| s.text == *kw);
             assert!(found.is_some(), "keyword '{kw}' should be found");
@@ -679,17 +735,24 @@ mod tests {
     #[test]
     fn rust_attribute_not_treated_as_comment() {
         let line = highlighter().highlight_line("#[derive(Debug)]", "rust");
-        let comment_spans: Vec<_> = line.spans.iter()
+        let comment_spans: Vec<_> = line
+            .spans
+            .iter()
             .filter(|s| s.style.color == colors::COMMENT)
             .collect();
-        assert!(comment_spans.is_empty(), "#[derive] should not be a comment in Rust");
+        assert!(
+            comment_spans.is_empty(),
+            "#[derive] should not be a comment in Rust"
+        );
         assert_eq!(line.plain_text(), "#[derive(Debug)]");
     }
 
     #[test]
     fn rust_hash_in_macro_not_comment() {
         let line = highlighter().highlight_line("#![allow(unused)]", "rust");
-        let comment_spans: Vec<_> = line.spans.iter()
+        let comment_spans: Vec<_> = line
+            .spans
+            .iter()
             .filter(|s| s.style.color == colors::COMMENT)
             .collect();
         assert!(comment_spans.is_empty());
@@ -751,8 +814,14 @@ mod tests {
     #[test]
     fn keyword_inside_string_not_highlighted_separately() {
         let line = highlighter().highlight_line(r#"let s = "fn let pub";"#, "rust");
-        let fn_kw = line.spans.iter().find(|s| s.text == "fn" && s.style.color == colors::KEYWORD);
-        assert!(fn_kw.is_none(), "'fn' inside string should not be a keyword");
+        let fn_kw = line
+            .spans
+            .iter()
+            .find(|s| s.text == "fn" && s.style.color == colors::KEYWORD);
+        assert!(
+            fn_kw.is_none(),
+            "'fn' inside string should not be a keyword"
+        );
     }
 
     // ---- Number followed by keyword ----
@@ -820,7 +889,7 @@ mod tests {
 
     #[test]
     fn default_instance_works_for_all_languages() {
-        let h = SyntaxHighlighter::default();
+        let h = SyntaxHighlighter;
         let _ = h.highlight_line("test", "rust");
         let _ = h.highlight_line("test", "rs");
         let _ = h.highlight_line("test", "nix");

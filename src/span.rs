@@ -328,6 +328,7 @@ impl fmt::Display for StyledSpan {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
 
@@ -613,10 +614,7 @@ mod tests {
 
     #[test]
     fn rich_line_clone_is_equal() {
-        let original = RichLine::from_spans(vec![
-            StyledSpan::plain("a"),
-            StyledSpan::plain("b"),
-        ]);
+        let original = RichLine::from_spans(vec![StyledSpan::plain("a"), StyledSpan::plain("b")]);
         let cloned = original.clone();
         assert_eq!(original, cloned);
     }
@@ -675,9 +673,7 @@ mod tests {
     #[test]
     fn text_style_builder_preserves_color_through_chain() {
         let color = [0.2, 0.4, 0.6, 0.8];
-        let style = TextStyle::colored(color)
-            .with_italic()
-            .with_underline();
+        let style = TextStyle::colored(color).with_italic().with_underline();
         assert_eq!(style.color, color);
         assert!(style.italic);
         assert!(style.underline);
@@ -743,20 +739,14 @@ mod tests {
 
     #[test]
     fn rich_line_into_iter_owned() {
-        let line = RichLine::from_spans(vec![
-            StyledSpan::plain("x"),
-            StyledSpan::plain("y"),
-        ]);
+        let line = RichLine::from_spans(vec![StyledSpan::plain("x"), StyledSpan::plain("y")]);
         let texts: Vec<String> = line.into_iter().map(|s| s.text).collect();
         assert_eq!(texts, vec!["x", "y"]);
     }
 
     #[test]
     fn rich_line_into_iter_ref() {
-        let line = RichLine::from_spans(vec![
-            StyledSpan::plain("a"),
-            StyledSpan::plain("b"),
-        ]);
+        let line = RichLine::from_spans(vec![StyledSpan::plain("a"), StyledSpan::plain("b")]);
         let texts: Vec<&str> = (&line).into_iter().map(|s| s.text.as_str()).collect();
         assert_eq!(texts, vec!["a", "b"]);
     }
@@ -818,10 +808,7 @@ mod tests {
 
     #[test]
     fn rich_line_iter_method() {
-        let line = RichLine::from_spans(vec![
-            StyledSpan::plain("a"),
-            StyledSpan::plain("b"),
-        ]);
+        let line = RichLine::from_spans(vec![StyledSpan::plain("a"), StyledSpan::plain("b")]);
         let texts: Vec<&str> = line.iter().map(|s| s.text.as_str()).collect();
         assert_eq!(texts, vec!["a", "b"]);
     }
@@ -844,7 +831,7 @@ mod tests {
             StyledSpan::plain("hello"),
             StyledSpan::new("world", TextStyle::bold()),
         ]);
-        let upper = line.map_text(|t| t.to_uppercase());
+        let upper = line.map_text(str::to_uppercase);
         assert_eq!(upper.plain_text(), "HELLOWORLD");
         assert_eq!(upper.spans[1].style.weight, TextWeight::Bold);
     }
@@ -924,7 +911,7 @@ mod tests {
             StyledSpan::new("b", TextStyle::bold()),
             StyledSpan::plain("c"),
         ]);
-        let mapped = line.map_text(|t| t.to_uppercase());
+        let mapped = line.map_text(str::to_uppercase);
         assert_eq!(mapped.len(), 3);
         assert_eq!(mapped.spans[0].text, "A");
         assert_eq!(mapped.spans[1].text, "B");
@@ -935,10 +922,7 @@ mod tests {
 
     #[test]
     fn retain_removes_all() {
-        let mut line = RichLine::from_spans(vec![
-            StyledSpan::plain("a"),
-            StyledSpan::plain("b"),
-        ]);
+        let mut line = RichLine::from_spans(vec![StyledSpan::plain("a"), StyledSpan::plain("b")]);
         line.retain(|_| false);
         assert!(line.is_empty());
         assert_eq!(line.len(), 0);

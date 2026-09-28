@@ -25,16 +25,30 @@ pub struct Document {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Block {
     /// `#`…`######`; `level` is 1–6.
-    Heading { level: u8, lines: Vec<RichLine> },
+    Heading {
+        level: u8,
+        lines: Vec<RichLine>,
+    },
     /// Prose. Display math written inside a paragraph stays in its flow, so
     /// `Evaluate\n\[…\]` draws the equation directly under its sentence.
     Paragraph(Vec<Flow>),
     /// Ordered when `start` is set. `loose` lists put a gap between items.
-    List { start: Option<u64>, loose: bool, items: Vec<Item> },
+    List {
+        start: Option<u64>,
+        loose: bool,
+        items: Vec<Item>,
+    },
     /// Fenced or indented code; `lang` is the info string's first word.
-    Code { lang: String, lines: Vec<String> },
+    Code {
+        lang: String,
+        lines: Vec<String>,
+    },
     Quote(Vec<Block>),
-    Table { align: Vec<Align>, head: Vec<RichLine>, rows: Vec<Vec<RichLine>> },
+    Table {
+        align: Vec<Align>,
+        head: Vec<RichLine>,
+        rows: Vec<Vec<RichLine>>,
+    },
     /// A paragraph that was nothing but display math.
     Math(MathRows),
     /// A thematic break (`---`).
@@ -45,8 +59,11 @@ pub enum Block {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Flow {
     /// A run of inline text up to a line break. `soft` is a source newline
-    /// (CommonMark folds it to a space; chat usually means a newline).
-    Line { line: RichLine, soft: bool },
+    /// (`CommonMark` folds it to a space; chat usually means a newline).
+    Line {
+        line: RichLine,
+        soft: bool,
+    },
     Math(MathRows),
 }
 
@@ -83,7 +100,11 @@ impl From<Alignment> for Align {
 /// An open container while the event stream is walked.
 enum Frame {
     Quote(Vec<Block>),
-    List { start: Option<u64>, loose: bool, items: Vec<Item> },
+    List {
+        start: Option<u64>,
+        loose: bool,
+        items: Vec<Item>,
+    },
     Item(Item),
 }
 
@@ -165,7 +186,10 @@ impl Builder {
             Some(Frame::Item(item)) => item.blocks.push(block),
             Some(Frame::List { items, .. }) => {
                 // Blocks never land directly in a list; guard anyway.
-                items.push(Item { task: None, blocks: vec![block] });
+                items.push(Item {
+                    task: None,
+                    blocks: vec![block],
+                });
             }
             None => self.root.push(block),
         }
@@ -196,7 +220,10 @@ impl Builder {
             Tag::Paragraph => self.flush_para(),
             Tag::Heading { level, .. } => {
                 self.flush_para();
-                self.para = Some(Para { heading: Some(level as u8), ..Para::default() });
+                self.para = Some(Para {
+                    heading: Some(level as u8),
+                    ..Para::default()
+                });
             }
             Tag::BlockQuote(_) => {
                 self.flush_para();
@@ -205,14 +232,20 @@ impl Builder {
             Tag::CodeBlock(kind) => {
                 self.flush_para();
                 let lang = match kind {
-                    CodeBlockKind::Fenced(info) => info.split_whitespace().next().unwrap_or("").to_owned(),
+                    CodeBlockKind::Fenced(info) => {
+                        info.split_whitespace().next().unwrap_or("").to_owned()
+                    }
                     CodeBlockKind::Indented => String::new(),
                 };
                 self.code = Some((lang, String::new()));
             }
             Tag::List(start) => {
                 self.flush_para();
-                self.stack.push(Frame::List { start, loose: false, items: Vec::new() });
+                self.stack.push(Frame::List {
+                    start,
+                    loose: false,
+                    items: Vec::new(),
+                });
             }
             Tag::Item => {
                 self.flush_para();
@@ -220,7 +253,10 @@ impl Builder {
             }
             Tag::Table(align) => {
                 self.flush_para();
-                self.table = Some(TableBuf { align: align.into_iter().map(Align::from).collect(), ..TableBuf::default() });
+                self.table = Some(TableBuf {
+                    align: align.into_iter().map(Align::from).collect(),
+                    ..TableBuf::default()
+                });
             }
             Tag::TableHead => {
                 if let Some(t) = self.table.as_mut() {
@@ -245,7 +281,9 @@ impl Builder {
             TagEnd::Paragraph => {
                 // A paragraph inside an item makes the list loose.
                 let in_item = matches!(self.stack.last(), Some(Frame::Item(_)));
-                if in_item && let Some(Frame::List { loose, .. }) = self.stack.iter_mut().rev().nth(1) {
+                if in_item
+                    && let Some(Frame::List { loose, .. }) = self.stack.iter_mut().rev().nth(1)
+                {
                     *loose = true;
                 }
                 self.flush_para();
@@ -259,7 +297,12 @@ impl Builder {
             }
             TagEnd::CodeBlock => {
                 if let Some((lang, text)) = self.code.take() {
-                    let lines = text.strip_suffix('\n').unwrap_or(&text).split('\n').map(str::to_owned).collect();
+                    let lines = text
+                        .strip_suffix('\n')
+                        .unwrap_or(&text)
+                        .split('\n')
+                        .map(str::to_owned)
+                        .collect();
                     self.push_block(Block::Code { lang, lines });
                 }
             }
@@ -273,8 +316,17 @@ impl Builder {
             }
             TagEnd::List(_) => {
                 self.flush_para();
-                if let Some(Frame::List { start, loose, items }) = self.stack.pop() {
-                    self.push_block(Block::List { start, loose, items });
+                if let Some(Frame::List {
+                    start,
+                    loose,
+                    items,
+                }) = self.stack.pop()
+                {
+                    self.push_block(Block::List {
+                        start,
+                        loose,
+                        items,
+                    });
                 }
             }
             TagEnd::TableCell => {
@@ -297,13 +349,17 @@ impl Builder {
             }
             TagEnd::Table => {
                 if let Some(t) = self.table.take() {
-                    self.push_block(Block::Table { align: t.align, head: t.head, rows: t.rows });
+                    self.push_block(Block::Table {
+                        align: t.align,
+                        head: t.head,
+                        rows: t.rows,
+                    });
                 }
             }
-            TagEnd::Emphasis | TagEnd::Strong | TagEnd::Strikethrough | TagEnd::Link => {
-                if self.styles.len() > 1 {
-                    self.styles.pop();
-                }
+            TagEnd::Emphasis | TagEnd::Strong | TagEnd::Strikethrough | TagEnd::Link
+                if self.styles.len() > 1 =>
+            {
+                self.styles.pop();
             }
             _ => {}
         }
@@ -329,13 +385,23 @@ impl Builder {
             Event::InlineMath(tex) => {
                 let mut st = self.style();
                 st.color = colors::MATH;
-                self.span(StyledSpan::new(crate::math::tex_to_unicode(&tex).join(" "), st));
+                self.span(StyledSpan::new(
+                    crate::math::tex_to_unicode(&tex).join(" "),
+                    st,
+                ));
             }
             Event::DisplayMath(tex) => {
                 let rows = crate::math::tex_to_rows(&tex);
                 if self.table.is_some() {
-                    let text = rows.iter().map(|r| r.join(" ")).collect::<Vec<_>>().join(" ");
-                    let st = TextStyle { color: colors::MATH, ..self.style() };
+                    let text = rows
+                        .iter()
+                        .map(|r| r.join(" "))
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    let st = TextStyle {
+                        color: colors::MATH,
+                        ..self.style()
+                    };
                     self.span(StyledSpan::new(text, st));
                     return;
                 }
@@ -416,8 +482,20 @@ impl Document {
         while let Some(frame) = b.stack.pop() {
             let block = match frame {
                 Frame::Quote(blocks) => Block::Quote(blocks),
-                Frame::List { start, loose, items } => Block::List { start, loose, items },
-                Frame::Item(item) => Block::List { start: None, loose: false, items: vec![item] },
+                Frame::List {
+                    start,
+                    loose,
+                    items,
+                } => Block::List {
+                    start,
+                    loose,
+                    items,
+                },
+                Frame::Item(item) => Block::List {
+                    start: None,
+                    loose: false,
+                    items: vec![item],
+                },
             };
             b.push_block(block);
         }
@@ -426,6 +504,7 @@ impl Document {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
 
@@ -434,7 +513,9 @@ mod tests {
         let d = Document::parse("# T\n\npara\n\n```rust\nfn x() {}\n```\n\n> q\n\n---\n");
         assert!(matches!(d.blocks[0], Block::Heading { level: 1, .. }));
         assert!(matches!(d.blocks[1], Block::Paragraph(_)));
-        assert!(matches!(&d.blocks[2], Block::Code { lang, lines } if lang == "rust" && lines.len() == 1));
+        assert!(
+            matches!(&d.blocks[2], Block::Code { lang, lines } if lang == "rust" && lines.len() == 1)
+        );
         assert!(matches!(d.blocks[3], Block::Quote(_)));
         assert!(matches!(d.blocks[4], Block::Rule));
     }
@@ -442,9 +523,19 @@ mod tests {
     #[test]
     fn list_items_hold_their_blocks_and_nesting() {
         let d = Document::parse("1. one\n   more\n   - inner\n2. two\n");
-        let Block::List { start: Some(1), loose: false, items } = &d.blocks[0] else { panic!("{d:?}") };
+        let Block::List {
+            start: Some(1),
+            loose: false,
+            items,
+        } = &d.blocks[0]
+        else {
+            panic!("{d:?}")
+        };
         assert_eq!(items.len(), 2);
-        assert!(matches!(items[0].blocks[1], Block::List { start: None, .. }));
+        assert!(matches!(
+            items[0].blocks[1],
+            Block::List { start: None, .. }
+        ));
     }
 
     #[test]
@@ -456,7 +547,9 @@ mod tests {
     #[test]
     fn display_math_stays_in_its_paragraph_flow() {
         let d = Document::parse("Evaluate\n\\[\nx^2\n\\]\nafter");
-        let Block::Paragraph(flow) = &d.blocks[0] else { panic!("{d:?}") };
+        let Block::Paragraph(flow) = &d.blocks[0] else {
+            panic!("{d:?}")
+        };
         assert!(matches!(flow[0], Flow::Line { .. }));
         assert!(matches!(flow[1], Flow::Math(_)));
         assert!(matches!(&flow[2], Flow::Line { line, .. } if line.plain_text() == "after"));
@@ -465,15 +558,25 @@ mod tests {
     #[test]
     fn math_alone_is_a_math_block() {
         let d = Document::parse("$$\na &= b \\\\\n  &= c\n$$\n");
-        assert_eq!(d.blocks, vec![Block::Math(vec![vec!["a".into(), "= b".into()], vec![String::new(), "= c".into()]])]);
+        assert_eq!(
+            d.blocks,
+            vec![Block::Math(vec![
+                vec!["a".into(), "= b".into()],
+                vec![String::new(), "= c".into()]
+            ])]
+        );
     }
 
     #[test]
     fn task_items_and_tables() {
         let d = Document::parse("- [x] done\n\n| a | b |\n|:-|-:|\n| 1 | 2 |\n");
-        let Block::List { items, .. } = &d.blocks[0] else { panic!() };
+        let Block::List { items, .. } = &d.blocks[0] else {
+            panic!()
+        };
         assert_eq!(items[0].task, Some(true));
-        let Block::Table { align, head, rows } = &d.blocks[1] else { panic!() };
+        let Block::Table { align, head, rows } = &d.blocks[1] else {
+            panic!()
+        };
         assert_eq!(align, &[Align::Left, Align::Right]);
         assert_eq!(head.len(), 2);
         assert_eq!(rows[0][1].plain_text(), "2");

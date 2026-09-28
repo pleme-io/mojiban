@@ -66,7 +66,9 @@ impl Rendered {
     /// The style a span's index names (the first entry when out of range).
     #[must_use]
     pub fn style(&self, index: u8) -> Option<&CellStyle> {
-        self.styles.get(usize::from(index)).or_else(|| self.styles.first())
+        self.styles
+            .get(usize::from(index))
+            .or_else(|| self.styles.first())
     }
 
     /// Rows as plain text, trailing spaces trimmed, one per line — the
@@ -90,7 +92,7 @@ pub enum SoftBreak {
     /// Keep it: chat text is written line by line.
     #[default]
     Newline,
-    /// CommonMark: fold it to a space and reflow.
+    /// `CommonMark`: fold it to a space and reflow.
     Space,
 }
 
@@ -221,10 +223,17 @@ pub fn render_markdown(markdown: &str, width: usize, theme: &Theme) -> Rendered 
 /// Lay `doc` out at `width` display columns.
 #[must_use]
 pub fn layout(doc: &Document, width: usize, theme: &Theme) -> Rendered {
-    let mut l = Layouter { theme, styles: Vec::new(), highlighter: SyntaxHighlighter::new() };
+    let mut l = Layouter {
+        theme,
+        styles: Vec::new(),
+        highlighter: SyntaxHighlighter::new(),
+    };
     l.intern(Role::Text, theme.styles.text, None);
     let rows = l.blocks(&doc.blocks, width.max(1), Ctx::default());
-    Rendered { rows, styles: l.styles }
+    Rendered {
+        rows,
+        styles: l.styles,
+    }
 }
 
 type Row = Vec<Span>;
@@ -260,14 +269,22 @@ fn wrap_hang(spans: Vec<Span>, width: usize, mode: Wrap, hang: usize) -> Vec<Row
     v.set_width(width.max(1));
     v.set_lines(vec![spans]);
     let rows: Vec<Row> = v.wrapped().iter().map(|w| w.spans().to_vec()).collect();
-    if rows.is_empty() { vec![Vec::new()] } else { rows }
+    if rows.is_empty() {
+        vec![Vec::new()]
+    } else {
+        rows
+    }
 }
 
 fn prefix(rows: Vec<Row>, first: &[Span], rest: &[Span]) -> Vec<Row> {
     rows.into_iter()
         .enumerate()
         .map(|(i, row)| {
-            let mut p = if i == 0 { first.to_vec() } else { rest.to_vec() };
+            let mut p = if i == 0 {
+                first.to_vec()
+            } else {
+                rest.to_vec()
+            };
             if row.is_empty() && i > 0 && rest.iter().all(|s| s.text().trim().is_empty()) {
                 return Vec::new();
             }
@@ -288,11 +305,19 @@ fn pad(text: &str, width: usize, align: Align) -> (usize, usize) {
 
 impl Layouter<'_> {
     fn intern(&mut self, role: Role, text: TextStyle, background: Option<[f32; 4]>) -> u8 {
-        let cs = CellStyle { role, text, background };
-        let i = self.styles.iter().position(|s| *s == cs).unwrap_or_else(|| {
-            self.styles.push(cs);
-            self.styles.len() - 1
-        });
+        let cs = CellStyle {
+            role,
+            text,
+            background,
+        };
+        let i = self
+            .styles
+            .iter()
+            .position(|s| *s == cs)
+            .unwrap_or_else(|| {
+                self.styles.push(cs);
+                self.styles.len() - 1
+            });
         u8::try_from(i).unwrap_or(0)
     }
 
@@ -312,20 +337,39 @@ impl Layouter<'_> {
         } else if st.color == colors::CODE {
             (Role::InlineCode, st)
         } else if let (true, Some((role, base))) = (plain, tint) {
-            (role, TextStyle { color: base.color, ..st })
+            (
+                role,
+                TextStyle {
+                    color: base.color,
+                    ..st
+                },
+            )
         } else {
-            (Role::Text, if plain { TextStyle { color: self.theme.styles.text.color, ..st } } else { st })
+            (
+                Role::Text,
+                if plain {
+                    TextStyle {
+                        color: self.theme.styles.text.color,
+                        ..st
+                    }
+                } else {
+                    st
+                },
+            )
         };
-        if let Some((Role::Heading(_), base)) = tint {
-            if base.weight == TextWeight::Bold {
-                out.weight = TextWeight::Bold;
-            }
+        if let Some((Role::Heading(_), base)) = tint
+            && base.weight == TextWeight::Bold
+        {
+            out.weight = TextWeight::Bold;
         }
         self.span(text, role, out)
     }
 
     fn line_spans(&mut self, line: &RichLine, tint: Option<(Role, TextStyle)>) -> Row {
-        line.spans.iter().map(|s| self.inline(&s.text, s.style, tint)).collect()
+        line.spans
+            .iter()
+            .map(|s| self.inline(&s.text, s.style, tint))
+            .collect()
     }
 
     fn tint(&self, ctx: Ctx) -> Option<(Role, TextStyle)> {
@@ -356,7 +400,11 @@ impl Layouter<'_> {
             Block::Heading { level, lines } => self.heading(*level, lines, width),
             Block::Paragraph(flow) => self.paragraph(flow, width, ctx),
             Block::Math(rows) => self.math(rows, width),
-            Block::List { start, loose, items } => self.list(*start, *loose, items, width, ctx),
+            Block::List {
+                start,
+                loose,
+                items,
+            } => self.list(*start, *loose, items, width, ctx),
             Block::Code { lang, lines } => self.code(lang, lines, width),
             Block::Quote(blocks) => self.quote(blocks, width, ctx),
             Block::Table { align, head, rows } => self.table(align, head, rows, width, ctx),
@@ -369,7 +417,11 @@ impl Layouter<'_> {
     }
 
     fn heading(&mut self, level: u8, lines: &[RichLine], width: usize) -> Vec<Row> {
-        let base = if level == 1 { self.theme.styles.heading1 } else { self.theme.styles.heading };
+        let base = if level == 1 {
+            self.theme.styles.heading1
+        } else {
+            self.theme.styles.heading
+        };
         let tint = Some((Role::Heading(level), base));
         let mut out = Vec::new();
         for line in lines {
@@ -382,9 +434,17 @@ impl Layouter<'_> {
             _ => None,
         };
         if let Some(g) = rule {
-            let w = out.iter().map(|r| row_width(r)).max().unwrap_or(0).min(width);
+            let w = out
+                .iter()
+                .map(|r| row_width(r))
+                .max()
+                .unwrap_or(0)
+                .min(width);
             let n = w / width_of(&g).max(1);
-            let st = TextStyle { weight: TextWeight::Normal, ..base };
+            let st = TextStyle {
+                weight: TextWeight::Normal,
+                ..base
+            };
             out.push(vec![self.span(g.repeat(n), Role::HeadingRule, st)]);
         }
         out
@@ -428,8 +488,15 @@ impl Layouter<'_> {
     /// right- and left-aligned, so every `=` after a `&` shares one column.
     fn math(&mut self, rows: &MathRows, width: usize) -> Vec<Row> {
         let cols = rows.iter().map(Vec::len).max().unwrap_or(0);
-        let widths: Vec<usize> =
-            (0..cols).map(|c| rows.iter().filter_map(|r| r.get(c)).map(|s| width_of(s)).max().unwrap_or(0)).collect();
+        let widths: Vec<usize> = (0..cols)
+            .map(|c| {
+                rows.iter()
+                    .filter_map(|r| r.get(c))
+                    .map(|s| width_of(s))
+                    .max()
+                    .unwrap_or(0)
+            })
+            .collect();
         let lines: Vec<String> = rows
             .iter()
             .map(|r| {
@@ -455,18 +522,33 @@ impl Layouter<'_> {
             })
             .collect();
         let widest = lines.iter().map(|l| width_of(l)).max().unwrap_or(0);
-        let indent = if widest + self.theme.math_indent <= width { self.theme.math_indent } else { 0 };
+        let indent = if widest + self.theme.math_indent <= width {
+            self.theme.math_indent
+        } else {
+            0
+        };
         let st = TextStyle::colored(colors::MATH);
         let mut out = Vec::new();
         for l in lines {
             let sp = self.span(l, Role::Math, st);
             let lead = [Span::plain(" ".repeat(indent))];
-            out.extend(prefix(wrap_hang(vec![sp], width - indent, Wrap::Word, 2), &lead, &lead));
+            out.extend(prefix(
+                wrap_hang(vec![sp], width - indent, Wrap::Word, 2),
+                &lead,
+                &lead,
+            ));
         }
         out
     }
 
-    fn list(&mut self, start: Option<u64>, loose: bool, items: &[Item], width: usize, ctx: Ctx) -> Vec<Row> {
+    fn list(
+        &mut self,
+        start: Option<u64>,
+        loose: bool,
+        items: &[Item],
+        width: usize,
+        ctx: Ctx,
+    ) -> Vec<Row> {
         let last = start.map(|s| s + items.len().saturating_sub(1) as u64);
         let num_w = last.map_or(0, |n| n.to_string().len() + 1);
         let gap = if loose { self.theme.block_gap } else { 0 };
@@ -474,17 +556,36 @@ impl Layouter<'_> {
         let mut out: Vec<Row> = Vec::new();
         for (i, item) in items.iter().enumerate() {
             let marker = match (start, item.task) {
-                (_, Some(done)) => (if done { &self.theme.task_done } else { &self.theme.task_open }).clone(),
+                (_, Some(done)) => (if done {
+                    &self.theme.task_done
+                } else {
+                    &self.theme.task_open
+                })
+                .clone(),
                 (Some(s), None) => format!("{:>num_w$}", format!("{}.", s + i as u64)),
                 (None, None) => {
                     let b = &self.theme.bullets;
-                    b.get(ctx.depth % b.len().max(1)).cloned().unwrap_or_else(|| "•".into())
+                    b.get(ctx.depth % b.len().max(1))
+                        .cloned()
+                        .unwrap_or_else(|| "•".into())
                 }
             };
             let mw = width_of(&marker) + 1;
             let inner = width.saturating_sub(mw).max(1);
-            let rows = self.blocks_gap(&item.blocks, inner, Ctx { depth: ctx.depth + 1, ..ctx }, gap);
-            let rows = if rows.is_empty() { vec![Vec::new()] } else { rows };
+            let rows = self.blocks_gap(
+                &item.blocks,
+                inner,
+                Ctx {
+                    depth: ctx.depth + 1,
+                    ..ctx
+                },
+                gap,
+            );
+            let rows = if rows.is_empty() {
+                vec![Vec::new()]
+            } else {
+                rows
+            };
             let first = [self.span(format!("{marker} "), Role::ListMarker, marker_style)];
             let rest = [Span::plain(" ".repeat(mw))];
             if i > 0 {
@@ -526,7 +627,14 @@ impl Layouter<'_> {
                     c if c == colors::NUMBER => Role::CodeNumber,
                     _ => Role::Code,
                 };
-                let st = if role == Role::Code { TextStyle { color: colors::CODE, ..s.style } } else { s.style };
+                let st = if role == Role::Code {
+                    TextStyle {
+                        color: colors::CODE,
+                        ..s.style
+                    }
+                } else {
+                    s.style
+                };
                 let i = self.intern(role, st, bg);
                 Span::new(s.text.replace('\t', "    "), i)
             })
@@ -543,7 +651,9 @@ impl Layouter<'_> {
             CodeFrame::Bar => ("▌ ", ""),
             CodeFrame::None => ("  ", ""),
         };
-        let inner = width.saturating_sub(width_of(left) + width_of(right)).max(1);
+        let inner = width
+            .saturating_sub(width_of(left) + width_of(right))
+            .max(1);
         let mut body: Vec<Row> = Vec::new();
         for line in lines {
             let spans = self.code_line(line, lang, bg);
@@ -579,33 +689,50 @@ impl Layouter<'_> {
             }
             CodeFrame::Bar | CodeFrame::None => {
                 if let Some(lab) = &label {
-                    out.push(vec![Span::plain(" ".repeat(width_of(left))), self.span(lab.clone(), Role::CodeLabel, label_st)]);
+                    out.push(vec![
+                        Span::plain(" ".repeat(width_of(left))),
+                        self.span(lab.clone(), Role::CodeLabel, label_st),
+                    ]);
                 }
             }
         }
         for mut row in body {
             let gap = inner.saturating_sub(row_width(&row));
-            let mut full = vec![l.clone()];
-            full.append(&mut row);
+            let mut framed = vec![l.clone()];
+            framed.append(&mut row);
             if gap > 0 && (bg.is_some() || t.frame == CodeFrame::Box) {
-                full.push(Span::new(" ".repeat(gap), fill));
+                framed.push(Span::new(" ".repeat(gap), fill));
             }
             if !right.is_empty() {
-                full.push(r.clone());
+                framed.push(r.clone());
             }
-            out.push(full);
+            out.push(framed);
         }
         if t.frame == CodeFrame::Box {
             let n = width.saturating_sub(2);
-            out.push(vec![self.span(format!("╰{}╯", "─".repeat(n)), Role::CodeFrame, frame_st)]);
+            out.push(vec![self.span(
+                format!("╰{}╯", "─".repeat(n)),
+                Role::CodeFrame,
+                frame_st,
+            )]);
         }
         out
     }
 
     /// Columns shrink widest-first until the table fits; each cell then
     /// word-wraps inside its column, so a row can span several lines.
-    fn table(&mut self, align: &[Align], head: &[RichLine], rows: &[Vec<RichLine>], width: usize, ctx: Ctx) -> Vec<Row> {
-        let cols = std::iter::once(head.len()).chain(rows.iter().map(Vec::len)).max().unwrap_or(0);
+    fn table(
+        &mut self,
+        align: &[Align],
+        head: &[RichLine],
+        rows: &[Vec<RichLine>],
+        width: usize,
+        ctx: Ctx,
+    ) -> Vec<Row> {
+        let cols = std::iter::once(head.len())
+            .chain(rows.iter().map(Vec::len))
+            .max()
+            .unwrap_or(0);
         if cols == 0 {
             return Vec::new();
         }
@@ -630,16 +757,29 @@ impl Layouter<'_> {
                 std::iter::once(head)
                     .chain(rows.iter().map(Vec::as_slice))
                     .filter_map(|r| r.get(c))
-                    .flat_map(|cell| cell.plain_text().split_whitespace().map(width_of).collect::<Vec<_>>())
+                    .flat_map(|cell| {
+                        cell.plain_text()
+                            .split_whitespace()
+                            .map(width_of)
+                            .collect::<Vec<_>>()
+                    })
                     .max()
                     .unwrap_or(1)
             })
             .collect();
         let mut w = natural;
         while w.iter().sum::<usize>() > avail {
-            let slack = w.iter().enumerate().filter(|(i, x)| **x > longest_word[*i]).max_by_key(|(_, x)| **x);
-            let Some((i, _)) = slack.or_else(|| w.iter().enumerate().filter(|(_, x)| **x > 3).max_by_key(|(_, x)| **x))
-            else {
+            let slack = w
+                .iter()
+                .enumerate()
+                .filter(|(i, x)| **x > longest_word[*i])
+                .max_by_key(|(_, x)| **x);
+            let Some((i, _)) = slack.or_else(|| {
+                w.iter()
+                    .enumerate()
+                    .filter(|(_, x)| **x > 3)
+                    .max_by_key(|(_, x)| **x)
+            }) else {
                 break;
             };
             w[i] -= 1;
@@ -656,9 +796,15 @@ impl Layouter<'_> {
                             .iter()
                             .map(|s| {
                                 if is_head {
-                                    let st = TextStyle { weight: TextWeight::Bold, ..s.style };
+                                    let st = TextStyle {
+                                        weight: TextWeight::Bold,
+                                        ..s.style
+                                    };
                                     let st = if st.color == TextStyle::default().color {
-                                        TextStyle { color: this.theme.styles.text.color, ..st }
+                                        TextStyle {
+                                            color: this.theme.styles.text.color,
+                                            ..st
+                                        }
                                     } else {
                                         st
                                     };

@@ -49,7 +49,12 @@ pub const COMMENT: [f32; 4] = [0.424, 0.443, 0.467, 1.0];
 /// `ColorPalette::pleme().aurora_purple` (Nord `#B48EAD`).
 pub const NUMBER: [f32; 4] = nord_rgba(0xB4, 0x8E, 0xAD);
 
+/// Aurora yellow — TeX math rendered to Unicode. ishou
+/// `ColorPalette::pleme().aurora_yellow` (Nord `#EBCB8B`).
+pub const MATH: [f32; 4] = nord_rgba(0xEB, 0xCB, 0x8B);
+
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
 
@@ -152,7 +157,3 @@ mod tests {
         }
     }
 }
-
-/// Aurora yellow — TeX math rendered to Unicode. ishou
-/// `ColorPalette::pleme().aurora_yellow` (Nord `#EBCB8B`).
-pub const MATH: [f32; 4] = nord_rgba(0xEB, 0xCB, 0x8B);

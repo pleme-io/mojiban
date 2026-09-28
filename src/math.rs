@@ -12,21 +12,54 @@
 
 /// Commands that only steer TeX layout; they carry no content.
 const DROPPED: &[&str] = &[
-    "displaystyle", "textstyle", "scriptstyle", "left", "right", "big", "Big", "bigg", "Bigg", "bigl", "bigr",
-    "Bigl", "Bigr", "biggl", "biggr", "!", "limits", "nolimits",
+    "displaystyle",
+    "textstyle",
+    "scriptstyle",
+    "left",
+    "right",
+    "big",
+    "Big",
+    "bigg",
+    "Bigg",
+    "bigl",
+    "bigr",
+    "Bigl",
+    "Bigr",
+    "biggl",
+    "biggr",
+    "!",
+    "limits",
+    "nolimits",
 ];
 
 /// Commands whose one argument is shown as-is (no further TeX meaning).
-const VERBATIM_ARG: &[&str] = &["text", "textrm", "textbf", "textit", "mathrm", "operatorname", "mbox"];
+const VERBATIM_ARG: &[&str] = &[
+    "text",
+    "textrm",
+    "textbf",
+    "textit",
+    "mathrm",
+    "operatorname",
+    "mbox",
+];
 
 /// Commands whose one argument is rendered, wrapper dropped.
-const TRANSPARENT_ARG: &[&str] = &["mathbf", "mathit", "mathsf", "boldsymbol", "bm", "mathbb", "mathcal", "mathfrak"];
+const TRANSPARENT_ARG: &[&str] = &[
+    "mathbf",
+    "mathit",
+    "mathsf",
+    "boldsymbol",
+    "bm",
+    "mathbb",
+    "mathcal",
+    "mathfrak",
+];
 
 /// Function names TeX sets upright; shown as the plain word.
 const FUNCTIONS: &[&str] = &[
-    "ln", "log", "lg", "exp", "sin", "cos", "tan", "cot", "sec", "csc", "arcsin", "arccos", "arctan", "sinh",
-    "cosh", "tanh", "lim", "liminf", "limsup", "max", "min", "sup", "inf", "det", "dim", "ker", "deg", "gcd",
-    "arg", "Pr", "mod",
+    "ln", "log", "lg", "exp", "sin", "cos", "tan", "cot", "sec", "csc", "arcsin", "arccos",
+    "arctan", "sinh", "cosh", "tanh", "lim", "liminf", "limsup", "max", "min", "sup", "inf", "det",
+    "dim", "ker", "deg", "gcd", "arg", "Pr", "mod",
 ];
 
 /// Render one TeX math source (without its `$`/`\[` delimiters) as lines of
@@ -52,7 +85,11 @@ pub fn tex_to_rows(src: &str) -> Vec<Vec<String>> {
     raw.split('\n')
         .map(|l| {
             l.split(CELL)
-                .map(|c| collapse_spaces(&tidy_scripts(&unicodeit::replace(c))).trim_start().to_owned())
+                .map(|c| {
+                    collapse_spaces(&tidy_scripts(&unicodeit::replace(c)))
+                        .trim_start()
+                        .to_owned()
+                })
                 .collect::<Vec<_>>()
         })
         .filter(|cells| cells.iter().any(|c| !c.is_empty()))
@@ -98,7 +135,7 @@ fn render_seq(s: &[char], pos: &mut usize, in_group: bool) -> String {
                 *pos += 1;
                 out.push(CELL);
             }
-            '~' => {
+            '~' | '\n' | '\r' | '\t' => {
                 *pos += 1;
                 out.push(' ');
             }
@@ -115,10 +152,6 @@ fn render_seq(s: &[char], pos: &mut usize, in_group: bool) -> String {
             '\\' => {
                 *pos += 1;
                 out.push_str(&render_command(s, pos));
-            }
-            '\n' | '\r' | '\t' => {
-                *pos += 1;
-                out.push(' ');
             }
             _ => {
                 *pos += 1;
@@ -196,12 +229,18 @@ fn take_raw_arg(s: &[char], pos: &mut usize) -> String {
 
 /// A rendered operand that needs parentheses to stay unambiguous around `/`.
 fn compound(t: &str) -> bool {
-    t.trim().chars().any(|c| matches!(c, ' ' | '+' | '-' | '−' | '=' | '/' | '·' | '×' | ','))
+    t.trim()
+        .chars()
+        .any(|c| matches!(c, ' ' | '+' | '-' | '−' | '=' | '/' | '·' | '×' | ','))
 }
 
 fn paren(t: &str) -> String {
     let t = t.trim();
-    if compound(t) { format!("({t})") } else { t.to_owned() }
+    if compound(t) {
+        format!("({t})")
+    } else {
+        t.to_owned()
+    }
 }
 
 fn render_command(s: &[char], pos: &mut usize) -> String {
@@ -214,7 +253,21 @@ fn render_command(s: &[char], pos: &mut usize) -> String {
         "{" | "}" | "$" | "%" | "#" | "&" | "_" => name,
         n if DROPPED.contains(&n) => {
             // `\left(` keeps its delimiter; `\left.` is an invisible one.
-            if matches!(n, "left" | "right" | "bigl" | "bigr" | "Bigl" | "Bigr" | "biggl" | "biggr" | "big" | "Big" | "bigg" | "Bigg") {
+            if matches!(
+                n,
+                "left"
+                    | "right"
+                    | "bigl"
+                    | "bigr"
+                    | "Bigl"
+                    | "Bigr"
+                    | "biggl"
+                    | "biggr"
+                    | "big"
+                    | "Big"
+                    | "bigg"
+                    | "Bigg"
+            ) {
                 match s.get(*pos) {
                     Some('.') => {
                         *pos += 1;
@@ -267,7 +320,11 @@ fn render_command(s: &[char], pos: &mut usize) -> String {
                 _ => "√",
             };
             let x = x.trim();
-            if x.chars().count() == 1 { format!("{root}{x}") } else { format!("{root}({x})") }
+            if x.chars().count() == 1 {
+                format!("{root}{x}")
+            } else {
+                format!("{root}({x})")
+            }
         }
         "boxed" | "fbox" => format!("[{}]", take_arg(s, pos).trim()),
         "begin" | "end" => {
@@ -306,20 +363,25 @@ fn tidy_scripts(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut i = 0;
     while i < chars.len() {
-        if matches!(chars[i], '_' | '^') && chars.get(i + 1) == Some(&'{') {
-            if let Some(len) = chars[i + 2..].iter().position(|c| *c == '}') {
-                let body: String = chars[i + 2..i + 2 + len].iter().collect::<String>().trim().to_owned();
-                out.push(chars[i]);
-                if body.chars().count() == 1 {
-                    out.push_str(&body);
-                } else {
-                    out.push('(');
-                    out.push_str(&body);
-                    out.push(')');
-                }
-                i += len + 3;
-                continue;
+        if matches!(chars[i], '_' | '^')
+            && chars.get(i + 1) == Some(&'{')
+            && let Some(len) = chars[i + 2..].iter().position(|c| *c == '}')
+        {
+            let body: String = chars[i + 2..i + 2 + len]
+                .iter()
+                .collect::<String>()
+                .trim()
+                .to_owned();
+            out.push(chars[i]);
+            if body.chars().count() == 1 {
+                out.push_str(&body);
+            } else {
+                out.push('(');
+                out.push_str(&body);
+                out.push(')');
             }
+            i += len + 3;
+            continue;
         }
         out.push(chars[i]);
         i += 1;
@@ -355,16 +417,25 @@ mod tests {
         );
         assert_eq!(
             lines,
-            vec!["F(1) = (1+1)ln(1+1) − 1", "= 2ln 2 − 1,", "F(0) = (1+0)ln(1+0) − 0", "= 1⋅ ln 1 = 0."]
+            vec![
+                "F(1) = (1+1)ln(1+1) − 1",
+                "= 2ln 2 − 1,",
+                "F(0) = (1+0)ln(1+0) − 0",
+                "= 1⋅ ln 1 = 0."
+            ]
         );
     }
 
     #[test]
     fn aligned_rows_keep_their_cells() {
-        let rows = tex_to_rows("\\begin{aligned}\nF(1) &= 2\\ln 2 - 1 \\\\\n&= 0.386\n\\end{aligned}");
+        let rows =
+            tex_to_rows("\\begin{aligned}\nF(1) &= 2\\ln 2 - 1 \\\\\n&= 0.386\n\\end{aligned}");
         assert_eq!(
             rows,
-            vec![vec!["F(1)".to_owned(), "= 2ln 2 − 1".to_owned()], vec![String::new(), "= 0.386".to_owned()]]
+            vec![
+                vec!["F(1)".to_owned(), "= 2ln 2 − 1".to_owned()],
+                vec![String::new(), "= 0.386".to_owned()]
+            ]
         );
     }
 
@@ -378,13 +449,19 @@ mod tests {
 
     #[test]
     fn greek_and_relations() {
-        assert_eq!(one(r"\alpha \le \beta \ne \gamma \to \infty"), "α ≤ β ≠ γ → ∞");
+        assert_eq!(
+            one(r"\alpha \le \beta \ne \gamma \to \infty"),
+            "α ≤ β ≠ γ → ∞"
+        );
         assert_eq!(one(r"a \times b \cdot c \ge d"), "a × b ⋅ c ≥ d");
     }
 
     #[test]
     fn sums_and_products() {
-        assert_eq!(one(r"\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}"), "∑ₙ₌₁^∞ 1/n² = π²/6");
+        assert_eq!(
+            one(r"\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}"),
+            "∑ₙ₌₁^∞ 1/n² = π²/6"
+        );
         assert!(one(r"\prod_{i} x_i").starts_with('∏'));
     }
 
@@ -404,6 +481,9 @@ mod tests {
 
     #[test]
     fn text_is_verbatim_and_left_right_keep_delimiters() {
-        assert_eq!(one(r"\left( \frac{a}{b} \right) \text{ if } x"), "( a/b ) if x");
+        assert_eq!(
+            one(r"\left( \frac{a}{b} \right) \text{ if } x"),
+            "( a/b ) if x"
+        );
     }
 }

@@ -142,9 +142,7 @@ impl MarkdownParser {
                 Event::End(tag_end) => {
                     style_stack.pop();
                     match tag_end {
-                        TagEnd::Paragraph
-                        | TagEnd::Heading(_)
-                        | TagEnd::BlockQuote(_) => {
+                        TagEnd::Paragraph | TagEnd::Heading(_) | TagEnd::BlockQuote(_) => {
                             lines.push(std::mem::take(&mut current_line));
                         }
                         TagEnd::Item => {
@@ -196,17 +194,26 @@ impl MarkdownParser {
                     style.color = colors::MATH;
                     if need_list_prefix {
                         if let Some(prefix) = list_prefix(&list_stack) {
-                            current_line.push(StyledSpan::new(prefix, style_stack.last().copied().unwrap_or_default()));
+                            current_line.push(StyledSpan::new(
+                                prefix,
+                                style_stack.last().copied().unwrap_or_default(),
+                            ));
                         }
                         need_list_prefix = false;
                     }
-                    current_line.push(StyledSpan::new(crate::math::tex_to_unicode(&tex).join(" "), style));
+                    current_line.push(StyledSpan::new(
+                        crate::math::tex_to_unicode(&tex).join(" "),
+                        style,
+                    ));
                 }
                 Event::DisplayMath(tex) => {
                     if !current_line.spans.is_empty() {
                         lines.push(std::mem::take(&mut current_line));
                     }
-                    let style = TextStyle { color: colors::MATH, ..TextStyle::default() };
+                    let style = TextStyle {
+                        color: colors::MATH,
+                        ..TextStyle::default()
+                    };
                     for l in crate::math::tex_to_unicode(&tex) {
                         let mut line = RichLine::new();
                         line.push(StyledSpan::new(format!("{DISPLAY_MATH_INDENT}{l}"), style));
@@ -259,12 +266,15 @@ impl TableBuf {
 
     fn finish_row(&mut self) {
         if !self.row.is_empty() {
-            self.rows.push((self.in_head, std::mem::take(&mut self.row)));
+            self.rows
+                .push((self.in_head, std::mem::take(&mut self.row)));
         }
     }
 
     fn width(cell: &[StyledSpan]) -> usize {
-        cell.iter().map(|s| unicode_width::UnicodeWidthStr::width(s.text.as_str())).sum()
+        cell.iter()
+            .map(|s| unicode_width::UnicodeWidthStr::width(s.text.as_str()))
+            .sum()
     }
 
     /// One line per row, columns padded to their widest cell and joined by
@@ -272,9 +282,18 @@ impl TableBuf {
     fn layout(self) -> Vec<RichLine> {
         let cols = self.rows.iter().map(|(_, r)| r.len()).max().unwrap_or(0);
         let widths: Vec<usize> = (0..cols)
-            .map(|c| self.rows.iter().map(|(_, r)| r.get(c).map_or(0, |cell| Self::width(cell))).max().unwrap_or(0))
+            .map(|c| {
+                self.rows
+                    .iter()
+                    .map(|(_, r)| r.get(c).map_or(0, |cell| Self::width(cell)))
+                    .max()
+                    .unwrap_or(0)
+            })
             .collect();
-        let rule_style = TextStyle { color: colors::QUOTE, ..TextStyle::default() };
+        let rule_style = TextStyle {
+            color: colors::QUOTE,
+            ..TextStyle::default()
+        };
         let mut out = Vec::new();
         for (is_head, row) in self.rows {
             let mut line = RichLine::new();
@@ -295,7 +314,10 @@ impl TableBuf {
             if is_head {
                 let rule: Vec<String> = widths.iter().map(|w| "\u{2500}".repeat(*w)).collect();
                 let mut r = RichLine::new();
-                r.push(StyledSpan::new(rule.join("\u{2500}\u{253c}\u{2500}"), rule_style));
+                r.push(StyledSpan::new(
+                    rule.join("\u{2500}\u{253c}\u{2500}"),
+                    rule_style,
+                ));
                 out.push(r);
             }
         }
@@ -307,7 +329,7 @@ impl TableBuf {
 const DISPLAY_MATH_INDENT: &str = "    ";
 
 /// Rewrite LaTeX's `\\[…\\]` and `\\(…\\)` to the `$$…$$` / `$…$` pulldown-cmark
-/// recognises. Without this, CommonMark reads `\\[` as an escaped bracket and
+/// recognises. Without this, `CommonMark` reads `\\[` as an escaped bracket and
 /// a model's display math renders as a bare `[` over raw TeX. Only a pair
 /// with its closer converts; fenced code and inline code spans are skipped.
 pub(crate) fn normalize_math_delimiters(src: &str) -> std::borrow::Cow<'_, str> {
@@ -345,8 +367,17 @@ fn convert_pairs(src: &str) -> String {
             i += run;
             continue;
         }
-        if !in_fence && in_code == 0 && c == b'\\' && i + 1 < bytes.len() && matches!(bytes[i + 1], b'[' | b'(') {
-            let (close, delim) = if bytes[i + 1] == b'[' { ("\\]", "$$") } else { ("\\)", "$") };
+        if !in_fence
+            && in_code == 0
+            && c == b'\\'
+            && i + 1 < bytes.len()
+            && matches!(bytes[i + 1], b'[' | b'(')
+        {
+            let (close, delim) = if bytes[i + 1] == b'[' {
+                ("\\]", "$$")
+            } else {
+                ("\\)", "$")
+            };
             if let Some(end) = src[i + 2..].find(close) {
                 let body = &src[i + 2..i + 2 + end];
                 out.push_str(delim);
@@ -386,6 +417,7 @@ fn list_prefix(stack: &[ListKind]) -> Option<String> {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
     use crate::TextProcessor;
@@ -454,7 +486,9 @@ mod tests {
         // pulldown-cmark wraps blockquote content in a paragraph,
         // so we may get multiple lines from End(Paragraph) + End(BlockQuote).
         // Find the line that contains the quoted text.
-        let quote_line = lines.iter().find(|l| l.plain_text().contains("quoted text"));
+        let quote_line = lines
+            .iter()
+            .find(|l| l.plain_text().contains("quoted text"));
         assert!(quote_line.is_some(), "should find quoted text in output");
         let span = &quote_line.unwrap().spans[0];
         assert_eq!(span.text, "quoted text");
@@ -522,7 +556,7 @@ mod tests {
 
     #[test]
     fn parser_default_trait() {
-        let p = MarkdownParser::default();
+        let p = MarkdownParser;
         let lines = p.parse("test");
         assert_eq!(lines.len(), 1);
     }
@@ -643,7 +677,11 @@ mod tests {
         let lines = parser().parse("line one\nline two");
         // pulldown-cmark emits SoftBreak between the two lines
         // Our parser flushes current_line on SoftBreak, so we get 2+ lines
-        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join(" ");
+        let all_text: String = lines
+            .iter()
+            .map(RichLine::plain_text)
+            .collect::<Vec<_>>()
+            .join(" ");
         assert!(all_text.contains("line one"));
         assert!(all_text.contains("line two"));
     }
@@ -652,7 +690,11 @@ mod tests {
     fn hard_break_creates_new_line() {
         // Two trailing spaces followed by newline = hard break
         let lines = parser().parse("first  \nsecond");
-        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join(" ");
+        let all_text: String = lines
+            .iter()
+            .map(RichLine::plain_text)
+            .collect::<Vec<_>>()
+            .join(" ");
         assert!(all_text.contains("first"));
         assert!(all_text.contains("second"));
     }
@@ -723,14 +765,22 @@ mod tests {
     #[test]
     fn blockquote_multiple_lines() {
         let lines = parser().parse("> line one\n> line two");
-        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join(" ");
+        let all_text: String = lines
+            .iter()
+            .map(RichLine::plain_text)
+            .collect::<Vec<_>>()
+            .join(" ");
         assert!(all_text.contains("line one"));
         assert!(all_text.contains("line two"));
         // All content spans should have QUOTE color
         for line in &lines {
             for span in &line.spans {
                 if !span.text.trim().is_empty() {
-                    assert_eq!(span.style.color, colors::QUOTE, "blockquote span should have QUOTE color");
+                    assert_eq!(
+                        span.style.color,
+                        colors::QUOTE,
+                        "blockquote span should have QUOTE color"
+                    );
                 }
             }
         }
@@ -739,7 +789,8 @@ mod tests {
     #[test]
     fn blockquote_with_bold() {
         let lines = parser().parse("> **bold quote**");
-        let bold_span = lines.iter()
+        let bold_span = lines
+            .iter()
             .flat_map(|l| l.spans.iter())
             .find(|s| s.text == "bold quote");
         assert!(bold_span.is_some());
@@ -763,7 +814,9 @@ mod tests {
     fn multiple_inline_codes() {
         let lines = parser().parse("`a` and `b`");
         assert_eq!(lines.len(), 1);
-        let code_spans: Vec<_> = lines[0].spans.iter()
+        let code_spans: Vec<_> = lines[0]
+            .spans
+            .iter()
             .filter(|s| s.style.color == colors::CODE)
             .collect();
         assert_eq!(code_spans.len(), 2);
@@ -835,7 +888,11 @@ mod tests {
         // which a renderer draws as a single garbled row.
         let texts: Vec<String> = lines.iter().map(RichLine::plain_text).collect();
         assert_eq!(texts, ["let x = 1;", "let y = 2;"]);
-        assert!(lines.iter().all(|l| l.spans.iter().all(|s| !s.text.contains('\n'))));
+        assert!(
+            lines
+                .iter()
+                .all(|l| l.spans.iter().all(|s| !s.text.contains('\n')))
+        );
     }
 
     // ---- Long document ----
@@ -844,7 +901,7 @@ mod tests {
     fn long_document_many_paragraphs() {
         let mut input = String::new();
         for i in 0..50 {
-            input.push_str(&format!("Paragraph {i}.\n\n"));
+            let _ = std::fmt::Write::write_fmt(&mut input, format_args!("Paragraph {i}.\n\n"));
         }
         let lines = parser().parse(&input);
         assert_eq!(lines.len(), 50);
@@ -859,7 +916,9 @@ mod tests {
     fn consecutive_bold_spans() {
         let lines = parser().parse("**one** **two**");
         assert_eq!(lines.len(), 1);
-        let bold_spans: Vec<_> = lines[0].spans.iter()
+        let bold_spans: Vec<_> = lines[0]
+            .spans
+            .iter()
             .filter(|s| s.style.weight == TextWeight::Bold)
             .collect();
         assert_eq!(bold_spans.len(), 2);
@@ -919,7 +978,11 @@ mod tests {
     fn nested_unordered_list() {
         let input = "- outer\n  - inner";
         let lines = parser().parse(input);
-        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join("\n");
+        let all_text: String = lines
+            .iter()
+            .map(RichLine::plain_text)
+            .collect::<Vec<_>>()
+            .join("\n");
         assert!(all_text.contains("outer"));
         assert!(all_text.contains("inner"));
     }
@@ -928,7 +991,11 @@ mod tests {
     fn ordered_inside_unordered() {
         let input = "- item\n  1. sub one\n  2. sub two";
         let lines = parser().parse(input);
-        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join("\n");
+        let all_text: String = lines
+            .iter()
+            .map(RichLine::plain_text)
+            .collect::<Vec<_>>()
+            .join("\n");
         assert!(all_text.contains("item"));
         assert!(all_text.contains("sub one"));
         assert!(all_text.contains("sub two"));
@@ -940,7 +1007,11 @@ mod tests {
     fn table_cell_text_preserved() {
         let input = "| A | B |\n|---|---|\n| 1 | 2 |";
         let lines = parser().parse(input);
-        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join(" ");
+        let all_text: String = lines
+            .iter()
+            .map(RichLine::plain_text)
+            .collect::<Vec<_>>()
+            .join(" ");
         assert!(all_text.contains('A'));
         assert!(all_text.contains('B'));
         assert!(all_text.contains('1'));
@@ -958,7 +1029,10 @@ mod tests {
         // The fence's language reaches the highlighter: `fn` is a keyword,
         // so it is styled differently from the identifier after it.
         let styles: Vec<_> = lines[0].spans.iter().map(|s| s.style).collect();
-        assert!(styles.windows(2).any(|w| w[0] != w[1]), "rust keywords must be highlighted");
+        assert!(
+            styles.windows(2).any(|w| w[0] != w[1]),
+            "rust keywords must be highlighted"
+        );
     }
 
     // ---- Horizontal rule ----
@@ -1002,7 +1076,11 @@ mod tests {
     fn empty_list_item() {
         let input = "- \n- text";
         let lines = parser().parse(input);
-        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join(" ");
+        let all_text: String = lines
+            .iter()
+            .map(RichLine::plain_text)
+            .collect::<Vec<_>>()
+            .join(" ");
         assert!(all_text.contains("text"));
     }
 
@@ -1055,7 +1133,11 @@ mod tests {
     fn blockquote_with_multiple_paragraphs() {
         let input = "> first\n>\n> second";
         let lines = parser().parse(input);
-        let all_text: String = lines.iter().map(RichLine::plain_text).collect::<Vec<_>>().join(" ");
+        let all_text: String = lines
+            .iter()
+            .map(RichLine::plain_text)
+            .collect::<Vec<_>>()
+            .join(" ");
         assert!(all_text.contains("first"));
         assert!(all_text.contains("second"));
     }
@@ -1074,23 +1156,36 @@ mod tests {
     #[test]
     fn code_block_between_paragraphs_keeps_its_rows() {
         let input = "Before:\n\n```nix\n{ x = 1; }\n# note\n```\n\nAfter.";
-        let texts: Vec<String> = parser().parse(input).iter().map(RichLine::plain_text).collect();
+        let texts: Vec<String> = parser()
+            .parse(input)
+            .iter()
+            .map(RichLine::plain_text)
+            .collect();
         assert_eq!(texts, ["Before:", "{ x = 1; }", "# note", "After."]);
     }
 
     #[test]
     fn indented_code_block_is_split_too() {
-        let texts: Vec<String> = parser().parse("    a\n    b\n").iter().map(RichLine::plain_text).collect();
+        let texts: Vec<String> = parser()
+            .parse("    a\n    b\n")
+            .iter()
+            .map(RichLine::plain_text)
+            .collect();
         assert_eq!(texts, ["a", "b"]);
     }
 
     // ---- tables ----
 
-    const TABLE: &str = "Intro.\n\n| Item | Details |\n|---|---|\n| Hardware | 32 GB |\n| OS | macOS |\n\nAfter.";
+    const TABLE: &str =
+        "Intro.\n\n| Item | Details |\n|---|---|\n| Hardware | 32 GB |\n| OS | macOS |\n\nAfter.";
 
     #[test]
     fn a_table_is_one_line_per_row_with_aligned_columns() {
-        let texts: Vec<String> = parser().parse(TABLE).iter().map(RichLine::plain_text).collect();
+        let texts: Vec<String> = parser()
+            .parse(TABLE)
+            .iter()
+            .map(RichLine::plain_text)
+            .collect();
         assert_eq!(
             texts,
             [
@@ -1115,13 +1210,21 @@ mod tests {
     #[test]
     fn emphasis_inside_a_cell_keeps_its_style() {
         let lines = parser().parse("| a |\n|---|\n| **b** |\n");
-        let b = lines.iter().flat_map(|l| l.spans.iter()).find(|s| s.text == "b").unwrap();
+        let b = lines
+            .iter()
+            .flat_map(|l| l.spans.iter())
+            .find(|s| s.text == "b")
+            .unwrap();
         assert_eq!(b.style.weight, TextWeight::Bold);
     }
 
     #[test]
     fn wide_characters_align_by_display_width() {
-        let texts: Vec<String> = parser().parse("| k | v |\n|---|---|\n| 日本 | x |\n| a | y |\n").iter().map(RichLine::plain_text).collect();
+        let texts: Vec<String> = parser()
+            .parse("| k | v |\n|---|---|\n| 日本 | x |\n| a | y |\n")
+            .iter()
+            .map(RichLine::plain_text)
+            .collect();
         // 日本 is 4 columns wide, so `a` is padded by 3 to match it.
         assert_eq!(texts[3], "a    \u{2502} y");
     }
@@ -1136,7 +1239,8 @@ mod tests {
 
     #[test]
     fn bracket_display_math_is_not_eaten_as_an_escape() {
-        let out = texts("Evaluate the definite integral\n\\[\n\\int_{0}^{1} \\ln(1+x)\\,dx.\n\\]\nnext");
+        let out =
+            texts("Evaluate the definite integral\n\\[\n\\int_{0}^{1} \\ln(1+x)\\,dx.\n\\]\nnext");
         assert!(out.iter().any(|l| l == "    ∫₀¹ ln(1+x) dx."), "{out:?}");
         assert!(!out.iter().any(|l| l.trim() == "["), "{out:?}");
     }
@@ -1144,9 +1248,15 @@ mod tests {
     #[test]
     fn dollar_display_math_gets_its_own_styled_lines() {
         let lines = MarkdownParser::new().parse("$$\\boxed{\\displaystyle \\int_{0}^{1} \\ln(1+x)\\,dx = 2\\ln 2 - 1 \\approx 0.386294}$$");
-        let m = lines.iter().find(|l| l.spans.iter().any(|s| s.text.contains('≈'))).expect("math line");
+        let m = lines
+            .iter()
+            .find(|l| l.spans.iter().any(|s| s.text.contains('≈')))
+            .expect("math line");
         assert_eq!(m.spans[0].style.color, colors::MATH);
-        assert_eq!(m.spans[0].text, "    [∫₀¹ ln(1+x) dx = 2ln 2 − 1 ≈ 0.386294]");
+        assert_eq!(
+            m.spans[0].text,
+            "    [∫₀¹ ln(1+x) dx = 2ln 2 − 1 ≈ 0.386294]"
+        );
     }
 
     #[test]
@@ -1157,9 +1267,13 @@ mod tests {
 
     #[test]
     fn aligned_display_block_one_line_per_row() {
-        let md = "\\[\n\\begin{aligned}\nF(1) &= 2\\ln 2 - 1, \\\\\nF(0) &= 0.\n\\end{aligned}\n\\]";
+        let md =
+            "\\[\n\\begin{aligned}\nF(1) &= 2\\ln 2 - 1, \\\\\nF(0) &= 0.\n\\end{aligned}\n\\]";
         let out = texts(md);
-        assert!(out.contains(&"    F(1) = 2ln 2 − 1,".to_string()), "{out:?}");
+        assert!(
+            out.contains(&"    F(1) = 2ln 2 − 1,".to_string()),
+            "{out:?}"
+        );
         assert!(out.contains(&"    F(0) = 0.".to_string()), "{out:?}");
     }
 
