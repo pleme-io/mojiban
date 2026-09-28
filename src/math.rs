@@ -33,14 +33,35 @@ const FUNCTIONS: &[&str] = &[
 /// Unicode text. More than one line only for `\\` row breaks.
 #[must_use]
 pub fn tex_to_unicode(src: &str) -> Vec<String> {
+    tex_to_rows(src)
+        .iter()
+        .map(|cells| collapse_spaces(&cells.join(" ")))
+        .filter(|l| !l.is_empty())
+        .collect()
+}
+
+/// Like [`tex_to_unicode`], but each row keeps its `&` alignment points:
+/// one row per `\\` break, each split into its cells. `aligned`, `align`,
+/// `cases` and `array` cells can then be laid out as columns (the `=` of
+/// every row under the one above). A row with no `&` is one cell.
+#[must_use]
+pub fn tex_to_rows(src: &str) -> Vec<Vec<String>> {
     let chars: Vec<char> = src.chars().collect();
     let mut pos = 0;
     let raw = render_seq(&chars, &mut pos, false);
     raw.split('\n')
-        .map(|l| collapse_spaces(&tidy_scripts(&unicodeit::replace(l))))
-        .filter(|l| !l.is_empty())
+        .map(|l| {
+            l.split(CELL)
+                .map(|c| collapse_spaces(&tidy_scripts(&unicodeit::replace(c))).trim_start().to_owned())
+                .collect::<Vec<_>>()
+        })
+        .filter(|cells| cells.iter().any(|c| !c.is_empty()))
         .collect()
 }
+
+/// Stands for a `&` alignment point between the structural pass and the
+/// split into cells; never survives into output.
+const CELL: char = '\u{1F}';
 
 fn collapse_spaces(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
@@ -73,7 +94,10 @@ fn render_seq(s: &[char], pos: &mut usize, in_group: bool) -> String {
                 *pos += 1;
                 out.push_str(&render_seq(s, pos, true));
             }
-            '&' => *pos += 1,
+            '&' => {
+                *pos += 1;
+                out.push(CELL);
+            }
             '~' => {
                 *pos += 1;
                 out.push(' ');
@@ -332,6 +356,15 @@ mod tests {
         assert_eq!(
             lines,
             vec!["F(1) = (1+1)ln(1+1) − 1", "= 2ln 2 − 1,", "F(0) = (1+0)ln(1+0) − 0", "= 1⋅ ln 1 = 0."]
+        );
+    }
+
+    #[test]
+    fn aligned_rows_keep_their_cells() {
+        let rows = tex_to_rows("\\begin{aligned}\nF(1) &= 2\\ln 2 - 1 \\\\\n&= 0.386\n\\end{aligned}");
+        assert_eq!(
+            rows,
+            vec![vec!["F(1)".to_owned(), "= 2ln 2 − 1".to_owned()], vec![String::new(), "= 0.386".to_owned()]]
         );
     }
 

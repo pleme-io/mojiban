@@ -21,6 +21,9 @@ Converts structured text into styled spans for GPU rendering via garasu.
 | `span.rs` | `RichLine`, `StyledSpan`, `TextStyle`, `TextWeight` — core types |
 | `markdown.rs` | `MarkdownParser` — pulldown-cmark to styled spans |
 | `highlight.rs` | `SyntaxHighlighter` — tree-sitter token coloring |
+| `doc.rs` | `Document::parse` — markdown + TeX to a typed block tree (headings, paragraphs with display-math flow, nested lists/tasks, code+lang, quotes, tables+align, aligned math rows, rules) |
+| `layout.rs` | `layout(doc, width, &Theme)` / `render_markdown` — the fleet's terminal document engine: egaku `Span` rows + a `CellStyle` table tagged with a semantic `Role` (hosts map roles to their own tokens). One `block_gap` between blocks, never doubled; hanging indents; quote gutters; framed, highlighted code; wrapping table cells; `&`-aligned math. `Theme` is a serde-default spec (partial YAML is valid) |
+| `math.rs` | `tex_to_unicode` (flat lines) and `tex_to_rows` (rows of `&` cells) |
 
 ### Layer Position
 
@@ -38,6 +41,8 @@ Application (chat messages, terminal, browser)
 - **nami**: HTML content rendering
 - **mado**: terminal escape sequence styling (future)
 - **hibiki**: lyrics display
+
+Golden layouts: `tests/golden.rs` (every block kind at 80/40/24 + the arnes math transcript). `MOJIBAN_BLESS=1 cargo test --test golden` rewrites them after a deliberate change.
 
 ## Design Decisions
 

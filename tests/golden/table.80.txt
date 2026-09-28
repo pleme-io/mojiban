@@ -1,0 +1,4 @@
+method   │     result │                     notes
+─────────┼────────────┼──────────────────────────────────────────────
+by parts │ 2 ln 2 - 1 │ the textbook route through the antiderivative
+numeric  │   0.386294 │                  quadrature

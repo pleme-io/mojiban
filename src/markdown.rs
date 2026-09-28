@@ -310,7 +310,7 @@ const DISPLAY_MATH_INDENT: &str = "    ";
 /// recognises. Without this, CommonMark reads `\\[` as an escaped bracket and
 /// a model's display math renders as a bare `[` over raw TeX. Only a pair
 /// with its closer converts; fenced code and inline code spans are skipped.
-fn normalize_math_delimiters(src: &str) -> std::borrow::Cow<'_, str> {
+pub(crate) fn normalize_math_delimiters(src: &str) -> std::borrow::Cow<'_, str> {
     if !src.contains("\\[") && !src.contains("\\(") {
         return std::borrow::Cow::Borrowed(src);
     }

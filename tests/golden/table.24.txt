@@ -1,0 +1,13 @@
+method │ result │ notes
+───────┼────────┼───────
+by     │ 2 ln 2 │  the
+parts  │    - 1 │ textbo
+       │        │   ok
+       │        │ route
+       │        │ throug
+       │        │ h the
+       │        │ antide
+       │        │ rivati
+       │        │   ve
+numeri │ 0.3862 │ quadra
+c      │     94 │  ture

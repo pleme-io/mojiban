@@ -47,6 +47,7 @@ impl FromStr for TextWeight {
 
 /// Visual style applied to a text span.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct TextStyle {
     /// RGBA color, each component in 0.0..=1.0.
     pub color: [f32; 4],

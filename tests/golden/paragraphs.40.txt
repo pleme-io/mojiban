@@ -1,0 +1,5 @@
+First paragraph with enough words to
+wrap when the terminal is narrow.
+
+Second paragraph.
+A soft break kept as a line.

@@ -28,6 +28,9 @@ thiserror = "2"
 unicode-width = "0.2"
 # TeX symbol and sub/superscript tables (port of unicodeit).
 unicodeit = "0.2"
+# Span + TextView's UAX #14 word wrap: the layout pass (layout.rs) emits
+# egaku rows, so every pleme-io renderer draws one shape.
+egaku = "0.1.20"
 
 [dev-dependencies]
 serde_json = "1"

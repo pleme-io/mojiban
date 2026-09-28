@@ -1,0 +1,17 @@
+• a bullet item long
+  enough that it wraps
+  onto a second row at
+  narrow widths
+• second
+  ◦ nested item that
+    also runs long
+    enough to wrap
+    ▪ third level
+
+1. Bold lead.
+   Continuation line
+   under the marker.
+
+2. Two
+
+3. Ten
